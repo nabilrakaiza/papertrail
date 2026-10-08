@@ -1,0 +1,8 @@
+inherit: configs/base.yaml
+run_name: lstm               # also Part II setting 1 (random, trainable embeddings)
+
+model:
+  type: lstm
+  hidden_dim: 512
+  num_layers: 2
+  dropout: 0.3

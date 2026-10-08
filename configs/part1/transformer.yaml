@@ -1,0 +1,17 @@
+inherit: configs/base.yaml
+run_name: transformer
+
+model:
+  type: transformer          # decoder-only, causal self-attention
+  d_model: 200               # equals emb_dim
+  n_heads: 4                 # 50 dims per head
+  n_layers: 4
+  d_ff: 800
+  dropout: 0.2
+  pos_encoding: learned
+  max_len: 64                # equals context_length
+
+train:
+  lr: 5.0e-4
+  warmup_steps: 1000
+  scheduler: cosine

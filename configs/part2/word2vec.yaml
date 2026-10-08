@@ -1,0 +1,13 @@
+inherit: configs/base.yaml
+run_name: word2vec_sg200
+
+word2vec:
+  method: skipgram           # gensim sg=1
+  vector_size: 200
+  window: 5
+  negative: 10
+  min_count: 1               # vocab already fixed by WikiText-2 <unk> replacement
+  epochs: 10
+  workers: 1                 # required for reproducibility in gensim
+  train_split_only: true     # no val/test text, to avoid leakage
+  output: embeddings/w2v_sg200_wikitext2.kv

@@ -1,0 +1,56 @@
+# Shared settings. Every run config inherits these and overrides what it needs.
+seed: 42
+
+data:
+  dataset: Salesforce/wikitext
+  config: wikitext-2-v1
+  lowercase: true
+  add_eos: true
+  drop_empty_lines: true
+  vocab_from: train          # vocab built from train split only
+  special_tokens: ["<pad>", "<unk>", "<eos>"]
+  cache_dir: data/
+
+model:
+  emb_dim: 200               # matches glove.6B.200d
+  emb_init: random           # random | word2vec | glove
+  freeze_emb: false
+  tie_weights: false         # keep false: tying would freeze the output layer in Part II
+
+train:
+  context_length: 64
+  batch_size: 32
+  optimizer: adamw
+  lr: 1.0e-3
+  weight_decay: 0.01
+  grad_clip: 1.0
+  max_epochs: 20
+  early_stopping_patience: 3 # on validation loss
+  carry_hidden_train: true   # truncated BPTT across chunks during training (RNN/LSTM only)
+  device: cuda
+
+eval:
+  carry_hidden_eval: false   # reset RNN/LSTM state per chunk for a fair context comparison
+  ignore_index_pad: true
+
+benchmark:
+  batch_size: 32
+  context_length: 64
+  warmup_batches: 10
+  repeats: 3
+
+generate:
+  prompts:
+    - "the album was released in"
+    - "during the war , the"
+    - "the species is found in"
+    - "in the second half of the game"
+    - "he was born in"
+  temperature: 0.8
+  top_k: 40
+  max_new_tokens: 50
+  seed: 42
+
+output:
+  runs_dir: runs/
+  results_dir: results/

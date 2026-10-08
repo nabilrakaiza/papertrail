@@ -1,0 +1,8 @@
+inherit: configs/base.yaml
+run_name: rnn
+
+model:
+  type: rnn                  # Elman RNN, tanh
+  hidden_dim: 512
+  num_layers: 2
+  dropout: 0.3

@@ -1,0 +1,8 @@
+inherit: configs/base.yaml
+run_name: ngram_kn3
+
+model:
+  type: ngram
+  order: 3
+  smoothing: interpolated_kneser_ney
+  discount: 0.75             # fixed absolute discount; optionally tune on validation

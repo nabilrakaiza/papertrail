@@ -1,0 +1,8 @@
+inherit: configs/part1/lstm.yaml
+run_name: lstm_w2v_frozen
+
+model:
+  emb_init: word2vec
+  emb_path: embeddings/w2v_sg200_wikitext2.kv
+  freeze_emb: true           # entire input table frozen
+  oov_init: normal_matched_std

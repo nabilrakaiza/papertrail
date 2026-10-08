@@ -1,0 +1,8 @@
+inherit: configs/part1/lstm.yaml
+run_name: lstm_glove_frozen
+
+model:
+  emb_init: glove
+  emb_path: embeddings/glove.6B.200d.txt
+  freeze_emb: true           # entire input table frozen, OOV rows included
+  oov_init: normal_matched_std   # N(0, std of GloVe matrix), seeded

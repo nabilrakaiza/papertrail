@@ -1,0 +1,26 @@
+inherit: configs/base.yaml
+run_name: probe_agnews
+
+task:
+  dataset: fancyzhx/ag_news
+  n_train: 10000             # 2,500 per class, stratified
+  n_val: 2000                # from the remaining official train split
+  test: full                 # official test split (7,600)
+  max_len: 128
+  vocab_from: wikitext2      # map tokens to the WikiText-2 LM vocab
+
+representations:
+  models:                    # frozen LM checkpoints
+    - runs/lstm/best.pt
+    - runs/transformer/best.pt
+  pooling: [mean_nonpad, last_nonpad]
+  layer: last
+
+classifier:
+  type: logistic_regression
+  C_grid: [0.01, 0.1, 1.0, 10.0]
+  max_iter: 2000
+  select_on: val_macro_f1
+
+metrics: [accuracy, macro_f1]
+n_error_examples: 10
