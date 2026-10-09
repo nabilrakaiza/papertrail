@@ -1,1 +1,6 @@
 .DS_store
+CLAUDE.md
+data/
+embeddings/
+run/
+__pycache__/
