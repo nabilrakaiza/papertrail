@@ -71,6 +71,14 @@ Preprocessing, applied identically for every model:
 
 Special tokens: `<pad>`, `<unk>`, `<eos>`. The WikiText number/hyphen markers (`@-@`, `@,@`, `@.@`) are kept as ordinary tokens.
 
+Resulting corpus (`python -m papertrail.data configs/base.yaml`), vocabulary 28,913 tokens including the three special tokens:
+
+| Split | Tokens | Chunks of 64 | `<unk>` rate |
+|---|---|---|---|
+| train | 2,075,677 | 32,433 | 2.63% |
+| validation | 216,347 | 3,381 | 5.42% |
+| test | 244,102 | 3,815 | 6.23% |
+
 ### AG News (Part III)
 
 - Source: Hugging Face `fancyzhx/ag_news` (4 classes: World, Sports, Business, Sci/Tech).
@@ -139,7 +147,7 @@ Outputs:
 
 ## Evaluation protocol
 
-**Prediction quality.** Test perplexity = `exp(mean next-token cross-entropy)` over every target token in the test stream, using the same vocabulary and the same token stream for all models. `<pad>` is excluded from the loss via `ignore_index` (with contiguous chunking there is no padding in the LM loss, but the guard is kept).
+**Prediction quality.** Test perplexity = `exp(mean next-token cross-entropy)` over every target token in the test stream, using the same vocabulary and the same token stream for all models. `<pad>` is excluded from the loss via `ignore_index`; the only padding is in the final chunk of each split, which is filled up to `context_length`.
 
 **Context.** Every model predicts each target from preceding tokens only. For a fair context comparison, RNN/LSTM hidden states are **reset at every chunk** during evaluation, so all neural models see at most `context_length` tokens of history. The n-gram sees 2 tokens of history.
 
