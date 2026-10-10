@@ -14,10 +14,12 @@ Every model here is trained from scratch, following the trail of classic papers 
 
 | Part | Item | Status |
 |---|---|---|
-| I | Interpolated Kneser-Ney trigram | done |
-| I | RNN LM | todo |
-| I | LSTM LM | todo |
-| I | Transformer LM | todo |
+| I | Data pipeline (WikiText-2, vocabulary, chunking) | done |
+| I | Interpolated Kneser-Ney trigram | done, results in `results/ngram_kn3.json` |
+| I | RNN LM | code done, not trained yet |
+| I | LSTM LM | code done, not trained yet |
+| I | Transformer LM | code done, not trained yet |
+| I | Training loop and evaluation | done |
 | I | Timing benchmark + generations | todo |
 | II | Skip-gram embeddings (own) | todo |
 | II | LSTM + frozen skip-gram | todo |
@@ -32,7 +34,16 @@ papertrail/
 │   ├── part1/          # ngram, rnn, lstm, transformer
 │   ├── part2/          # word2vec, lstm_w2v_frozen, lstm_glove_frozen
 │   └── part3/          # probe (AG News)
-├── papertrail/         # source package (data, models, train, evaluate, generate, ...)
+├── papertrail/         # source package
+│   ├── config.py       # YAML loading with `inherit`
+│   ├── data.py         # WikiText-2 -> tokens -> vocabulary -> chunks
+│   ├── ngram.py        # interpolated Kneser-Ney trigram (fit, evaluate)
+│   ├── rnn.py          # RNN and LSTM language models
+│   ├── transformer.py  # decoder-only Transformer language model
+│   ├── models.py       # build a neural model from a config, count parameters
+│   ├── train.py        # training loop for the neural models
+│   ├── evaluate.py     # loss / perplexity, shared by all neural models
+│   └── utils.py        # seeding, device choice, timing helpers
 ├── scripts/            # one-off helpers (GloVe download)
 ├── results/            # metrics JSON/CSV and figures (tracked)
 ├── report/             # PDF report
@@ -43,7 +54,7 @@ papertrail/
 
 ## Setup
 
-Tested with Python 3.11.
+Developed and tested with Python 3.13 and PyTorch 2.9.
 
 ```bash
 python -m venv .venv
@@ -106,6 +117,17 @@ Each run is fully described by one YAML file. Shared settings live in `configs/b
 | `configs/part2/lstm_glove_frozen.yaml` | II | LSTM LM with frozen GloVe embeddings |
 | `configs/part3/probe.yaml` | III | Frozen-LM features + logistic regression on AG News |
 
+### Models
+
+| Model | Architecture | Parameters (of which input embedding) |
+|---|---|---|
+| KN trigram | Interpolated Kneser-Ney, order 3, one fixed discount of 0.75 | 1,377,988 distinct trigrams, 586,138 distinct bigrams |
+| RNN | 2-layer Elman RNN (tanh), hidden size 512, dropout 0.3 | 21,505,849 (5,782,600) |
+| LSTM | 2-layer LSTM, hidden size 512, dropout 0.3 | 24,178,489 (5,782,600) |
+| Transformer | Decoder-only, 4 blocks, width 200, 4 heads, feed-forward 800, dropout 0.2 | 13,524,513 (5,782,600) |
+
+The Transformer is post-LN with ReLU, fixed sinusoidal positions and the `sqrt(d_model)` embedding scale, as in Vaswani et al. (2017), and is initialized at `normal(std=0.02)` as in GPT-1. In every neural model most of the parameters are the output layer (hidden size x 28,913), because input and output embeddings are not tied.
+
 Design choices that keep the comparisons fair:
 
 - **Same vocab, splits, and evaluation function** for all four Part I models.
@@ -115,7 +137,9 @@ Design choices that keep the comparisons fair:
 
 ## Reproducing the results
 
-Planned commands (the interface each script will expose):
+Run everything from the repository root. The first run downloads WikiText-2 into `data/`.
+
+Working now:
 
 ```bash
 # Part I
@@ -123,6 +147,16 @@ python -m papertrail.ngram     --config configs/part1/ngram.yaml
 python -m papertrail.train     --config configs/part1/rnn.yaml
 python -m papertrail.train     --config configs/part1/lstm.yaml
 python -m papertrail.train     --config configs/part1/transformer.yaml
+
+# Inspect a resolved config, or the corpus statistics
+python -m papertrail.config    configs/part2/lstm_glove_frozen.yaml
+python -m papertrail.data      configs/base.yaml
+```
+
+Planned, not written yet (the interface each script will expose):
+
+```bash
+# Part I
 python -m papertrail.benchmark --configs configs/part1/*.yaml     # timing + model size
 python -m papertrail.generate  --configs configs/part1/*.yaml     # matched-decoding samples
 
@@ -141,15 +175,18 @@ python -m papertrail.report_figs
 
 Outputs:
 
-- Checkpoints and per-epoch logs: `runs/<run_name>/`
-- Final metrics: `results/<run_name>.json`
+- Best checkpoint (lowest validation loss): `runs/<run_name>/best.pt`
+- Train and validation loss and cumulative training time per epoch: `runs/<run_name>/log.json`
+- Final metrics, measured with the best checkpoint: `results/<run_name>.json`
 - Figures: `results/figures/`
 
 ## Evaluation protocol
 
-**Prediction quality.** Test perplexity = `exp(mean next-token cross-entropy)` over every target token in the test stream, using the same vocabulary and the same token stream for all models. `<pad>` is excluded from the loss via `ignore_index`; the only padding is in the final chunk of each split, which is filled up to `context_length`.
+**Prediction quality.** Test perplexity = `exp(mean next-token cross-entropy)` over every target token in the test stream, using the same vocabulary and the same token stream for all models. The targets are every token of a split except its first (244,101 in test), for the n-gram and the neural models alike. `<pad>` is excluded from the loss via `ignore_index`; the only padding is in the final chunk of each split, which is filled up to `context_length`.
 
 **Context.** Every model predicts each target from preceding tokens only. For a fair context comparison, RNN/LSTM hidden states are **reset at every chunk** during evaluation, so all neural models see at most `context_length` tokens of history. The n-gram sees 2 tokens of history.
+
+**Training procedure.** The same for every neural model: AdamW (weight decay 0.01), batch size 32, gradient-norm clipping at 1.0, at most 20 epochs, early stopping after 3 epochs without improvement in validation loss, and the checkpoint with the lowest validation loss is the one evaluated. Batches are read in corpus order without shuffling, so that the RNN and LSTM can carry their hidden state from one batch to the next (truncated backpropagation through time over 64 tokens). The RNN and LSTM use a constant learning rate of 1e-3; the Transformer uses 5e-4 with 1,000 warmup steps and cosine decay.
 
 **Training cost.** Wall-clock training time to the best validation checkpoint and in total, number of epochs, and trainable / total parameter counts (embedding parameters reported separately). The time covers the training passes only, not the validation pass after each epoch, and the device is synchronized before each clock reading.
 
@@ -163,15 +200,16 @@ Outputs:
 
 ## Random seeds and determinism
 
-- Global seed: `42` (Python, NumPy, PyTorch, CUDA), set in every entry point.
+- Global seed: `42` (Python, NumPy, PyTorch, CUDA), set in every entry point that uses randomness. The n-gram model uses none.
 - `torch.backends.cudnn.deterministic = True`, `torch.backends.cudnn.benchmark = False`.
 - Skip-gram: `gensim` with `workers=1` and `PYTHONHASHSEED=42` (gensim is only reproducible single-threaded).
 - AG News subsampling and OOV embedding initialization use the same seed.
+- Two CPU runs of the training loop with the same seed give identical losses. This has not been checked on a GPU, where some operations are not deterministic.
 - All main results are from a single seed because of the compute budget. This is stated as a limitation in the report.
 
 ## Hardware
 
-To be filled in with the exact GPU, CPU, and library versions used for the reported numbers.
+To be filled in with the exact GPU, CPU, and library versions used for the reported numbers. Each `results/<run_name>.json` from the training loop records the device and PyTorch version it ran on. The configs ask for `cuda`; on a machine without it the code falls back to Apple `mps`, then to `cpu`, and prints which one it used.
 
 | Item | Value |
 |---|---|
@@ -181,14 +219,16 @@ To be filled in with the exact GPU, CPU, and library versions used for the repor
 
 ## Results
 
-To be filled in from `results/`.
+Filled in from `results/` as runs finish. The neural models have not been trained yet.
 
 | Model | Params | Test PPL | Train time | Inference (tok/s) |
 |---|---|---|---|---|
-| KN trigram | | | | |
-| RNN | | | | |
-| LSTM | | | | |
-| Transformer | | | | |
+| KN trigram | 1.38M trigrams | 226.00 | 10.2 s | |
+| RNN | 21.5M | | | |
+| LSTM | 24.2M | | | |
+| Transformer | 13.5M | | | |
+
+The KN trigram's validation perplexity is 240.66. Its "train time" is the time to count the n-grams, measured on an Apple M1 CPU.
 
 ## References and attribution
 
@@ -198,11 +238,20 @@ To be filled in from `results/`.
 - Skip-gram: Mikolov, Chen, Corrado, Dean. *Efficient Estimation of Word Representations in Vector Space.* 2013. Implemented with gensim (Řehůřek and Sojka, 2010).
 - Kneser-Ney smoothing: Kneser and Ney, 1995; Chen and Goodman, 1999.
 - RNN LM: Mikolov et al., 2010. LSTM: Hochreiter and Schmidhuber, 1997. Transformer: Vaswani et al., 2017.
+- The Transformer in `papertrail/transformer.py` is ported from the author's earlier implementation, github.com/nabilrakaiza/transformer.
 - Course notebooks adapted where noted in the source files.
 
 ## Tool use
 
-AI coding assistants were used for repository scaffolding and code review. All experiments were run, and all analysis and interpretation in the report were written, by the author. Specific assisted components are noted in the report.
+An AI coding assistant (Claude Code, Anthropic) was used substantially in this project. Commits it produced carry a `Co-Authored-By: Claude` trailer.
+
+- **Written by the assistant:** config loading (`config.py`), the data pipeline (`data.py`), the RNN and LSTM model (`rnn.py`), the training loop (`train.py`, `models.py`, `utils.py`), and the repository scaffolding (configs, checklist, this README).
+- **Written jointly:**
+  - `ngram.py`: the author wrote part of the counting, the trigram level of the probability, `distribution` and `evaluate`, with review from the assistant. The assistant wrote the file structure, the remaining count tables, the bigram and unigram levels, and `main`.
+  - `evaluate.py`: the author wrote the structure of the function; the assistant corrected and completed it.
+- **Written by the author:** the Transformer (`transformer.py`), ported from the author's earlier implementation. The assistant reformatted it and adapted it to this project's interface (untied output layer, loss moved out of the model).
+
+The analysis and interpretation in the report are the author's own.
 
 ## License
 
