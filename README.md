@@ -14,7 +14,7 @@ Every model here is trained from scratch, following the trail of classic papers 
 
 | Part | Item | Status |
 |---|---|---|
-| I | Interpolated Kneser-Ney trigram | todo |
+| I | Interpolated Kneser-Ney trigram | done |
 | I | RNN LM | todo |
 | I | LSTM LM | todo |
 | I | Transformer LM | todo |
@@ -151,7 +151,7 @@ Outputs:
 
 **Context.** Every model predicts each target from preceding tokens only. For a fair context comparison, RNN/LSTM hidden states are **reset at every chunk** during evaluation, so all neural models see at most `context_length` tokens of history. The n-gram sees 2 tokens of history.
 
-**Training cost.** Wall-clock training time to the best validation checkpoint and in total, number of epochs, and trainable / total parameter counts (embedding parameters reported separately).
+**Training cost.** Wall-clock training time to the best validation checkpoint and in total, number of epochs, and trainable / total parameter counts (embedding parameters reported separately). The time covers the training passes only, not the validation pass after each epoch, and the device is synchronized before each clock reading.
 
 **Inference cost.** One common workload: a full forward pass over the test stream at batch size 32 and `context_length` 64. Measured after 10 warm-up batches, with `torch.cuda.synchronize()` around the timed region, reported as tokens per second (mean of 3 repeats).
 

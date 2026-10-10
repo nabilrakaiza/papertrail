@@ -3,4 +3,5 @@ CLAUDE.md
 data/
 embeddings/
 run/
+runs/
 __pycache__/
