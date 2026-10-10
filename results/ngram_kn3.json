@@ -1,0 +1,28 @@
+{
+  "run_name": "ngram_kn3",
+  "model": {
+    "emb_dim": 200,
+    "emb_init": "random",
+    "freeze_emb": false,
+    "tie_weights": false,
+    "type": "ngram",
+    "order": 3,
+    "smoothing": "interpolated_kneser_ney",
+    "discount": 0.75
+  },
+  "vocab_size": 28913,
+  "fit_seconds": 10.194625124997401,
+  "stored_ngrams": {
+    "trigrams": 1377988,
+    "bigrams": 586138,
+    "unigrams": 28912
+  },
+  "loss": {
+    "validation": 5.483392427871687,
+    "test": 5.420522298389796
+  },
+  "perplexity": {
+    "validation": 240.6617517372249,
+    "test": 225.99712961878544
+  }
+}

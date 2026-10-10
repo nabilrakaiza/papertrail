@@ -4,7 +4,7 @@ Every required item from the brief, mapped to where it lives. Tick as you go. De
 
 ## Part I (40)
 
-- [ ] n-gram LM with smoothing/interpolation: `configs/part1/ngram.yaml`
+- [x] n-gram LM with smoothing/interpolation: `configs/part1/ngram.yaml`, `papertrail/ngram.py`
 - [ ] RNN, LSTM, Transformer LMs with random trainable embeddings
 - [ ] All models predict from preceding tokens only (causal mask checked for Transformer)
 - [ ] Test perplexity on the common setup, padding excluded
