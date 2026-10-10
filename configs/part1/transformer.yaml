@@ -8,7 +8,7 @@ model:
   n_layers: 4
   d_ff: 800
   dropout: 0.2
-  pos_encoding: learned
+  pos_encoding: sinusoidal   # fixed, as in Vaswani et al. (2017)
   max_len: 64                # equals context_length
 
 train:
