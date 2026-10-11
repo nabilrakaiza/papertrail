@@ -3,7 +3,9 @@
 set -euo pipefail
 
 DEST="embeddings"
-URL="https://nlp.stanford.edu/data/glove.6B.zip"
+# Stanford NLP's own mirror on Hugging Face. The original location,
+# https://nlp.stanford.edu/data/glove.6B.zip, serves the same file but can be very slow.
+URL="https://huggingface.co/stanfordnlp/glove/resolve/main/glove.6B.zip"
 mkdir -p "$DEST"
 
 if [ -f "$DEST/glove.6B.200d.txt" ]; then

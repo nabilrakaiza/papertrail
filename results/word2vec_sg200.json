@@ -1,0 +1,24 @@
+{
+  "run_name": "word2vec_sg200",
+  "settings": {
+    "method": "skipgram",
+    "vector_size": 200,
+    "window": 5,
+    "negative": 10,
+    "min_count": 1,
+    "epochs": 10,
+    "workers": 1,
+    "train_split_only": true,
+    "output": "embeddings/w2v_sg200_wikitext2.kv"
+  },
+  "gensim_defaults": {
+    "sample": 0.001,
+    "alpha": 0.025,
+    "ns_exponent": 0.75
+  },
+  "sentences": 23767,
+  "tokens": 2075677,
+  "vocabulary": 28912,
+  "train_seconds": 241.14405450000777,
+  "device": "cpu"
+}
