@@ -46,6 +46,7 @@ papertrail/
 │   ├── evaluate.py     # loss / perplexity, shared by all neural models
 │   ├── word2vec.py     # skip-gram vectors on the train split (gensim)
 │   ├── embeddings.py   # load skip-gram or GloVe vectors into a model, freeze them
+│   ├── agnews.py       # AG News subsets, tokenized into the WikiText-2 vocabulary
 │   ├── benchmark.py    # inference throughput and model size
 │   ├── generate.py     # sampled continuations with matched decoding
 │   ├── report_figs.py  # figures for the report
@@ -101,7 +102,16 @@ Resulting corpus (`python -m papertrail.data configs/base.yaml`), vocabulary 28,
 - Source: Hugging Face `fancyzhx/ag_news` (4 classes: World, Sports, Business, Sci/Tech).
 - Subset: 10,000 training examples (2,500 per class, stratified), 2,000 validation examples carved from the remaining train split, and the full official test split (7,600).
 - Text is lowercased and tokenized with the same rules as WikiText (punctuation split, hyphens and number separators mapped to `@-@`, `@,@`, `@.@`), then mapped to the **WikiText-2 vocabulary**. Unknown words become `<unk>`; the `<unk>` rate is reported.
-- Sequences are truncated to 128 tokens and padded with `<pad>`.
+- Sequences are truncated to 64 tokens, the chunk length the language models were trained on, and padded at the end with `<pad>`.
+- Resulting subsets (`python -m papertrail.agnews configs/part3/probe.yaml`):
+
+| Subset | Items | Mean length (tokens) | `<unk>` rate | Longer than 64 tokens |
+|---|---|---|---|---|
+| train | 10,000 | 44.1 | 6.83% | 4.35% |
+| validation | 2,000 | 43.9 | 6.94% | 4.90% |
+| test | 7,600 | 43.7 | 6.96% | 3.79% |
+
+The tokenizer approximates WikiText-2's conventions and is not the original tool. It also removes scraping debris that AG News carries (HTML tags, entities such as `#39;` and `amp;`). The most frequent unknown words are news vocabulary absent from WikiText-2, such as "corp", "afp", "oracle" and "darfur".
 
 ### GloVe (Part II)
 
@@ -169,6 +179,7 @@ python -m papertrail.train     --config configs/part2/lstm_glove_frozen.yaml
 # Inspect a resolved config, or the corpus statistics
 python -m papertrail.config    configs/part2/lstm_glove_frozen.yaml
 python -m papertrail.data      configs/base.yaml
+python -m papertrail.agnews    configs/part3/probe.yaml
 ```
 
 Planned, not written yet (the interface each script will expose):
@@ -261,7 +272,7 @@ Notes on the timings:
 
 An AI coding assistant (Claude Code, Anthropic) was used substantially in this project. Commits it produced carry a `Co-Authored-By: Claude` trailer.
 
-- **Written by the assistant:** config loading (`config.py`), the data pipeline (`data.py`), the RNN and LSTM model (`rnn.py`), the training loop (`train.py`, `models.py`, `utils.py`), the benchmark (`benchmark.py`), the figures (`report_figs.py`), the Part II embedding code (`word2vec.py`, `embeddings.py`), and the repository scaffolding (configs, checklist, this README).
+- **Written by the assistant:** config loading (`config.py`), the data pipeline (`data.py`), the RNN and LSTM model (`rnn.py`), the training loop (`train.py`, `models.py`, `utils.py`), the benchmark (`benchmark.py`), the figures (`report_figs.py`), the Part II embedding code (`word2vec.py`, `embeddings.py`), the AG News preparation (`agnews.py`), and the repository scaffolding (configs, checklist, this README).
 - **Written jointly:**
   - `ngram.py`: the author wrote part of the counting, the trigram level of the probability, `distribution` and `evaluate`, with review from the assistant. The assistant wrote the file structure, the remaining count tables, the bigram and unigram levels, and `main`.
   - `evaluate.py`: the author wrote the structure of the function; the assistant corrected and completed it.

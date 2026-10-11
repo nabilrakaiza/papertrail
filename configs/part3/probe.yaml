@@ -6,7 +6,7 @@ task:
   n_train: 10000             # 2,500 per class, stratified
   n_val: 2000                # from the remaining official train split
   test: full                 # official test split (7,600)
-  max_len: 128
+  max_len: 64                # the language models were trained on 64-token chunks
   vocab_from: wikitext2      # map tokens to the WikiText-2 LM vocab
 
 representations:
