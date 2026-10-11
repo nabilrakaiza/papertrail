@@ -50,7 +50,7 @@ def loss_curves(panels: list[tuple[str, str]], path, reference: tuple[str, float
     sits higher than it would on the same data in evaluation mode.
     """
     logs = [json.load(open(RUNS_DIR / run_name / "log.json")) for _, run_name in panels]
-    fig, axes = plt.subplots(1, len(panels), figsize=(6.5, 2.5), sharex=True, sharey=True, squeeze=False)
+    fig, axes = plt.subplots(1, len(panels), figsize=(6.5, 2.6), sharex=True, sharey=True, squeeze=False)
     axes = axes[0]
     longest = max(len(log) for log in logs)
 
@@ -67,15 +67,11 @@ def loss_curves(panels: list[tuple[str, str]], path, reference: tuple[str, float
         best = min(range(len(val)), key=val.__getitem__)
         ax.plot(epochs[best], val[best], "o", color=VALIDATION, markersize=6.5,
                 markeredgecolor="white", markeredgewidth=1.5, zorder=4)
-        # The label sits just above the flat stretch of the validation curve,
-        # on whichever side of the dot has room, clear of the steep early epochs.
-        room_on_right = epochs[best] <= longest / 2
-        ax.annotate(f"best {val[best]:.2f} (epoch {epochs[best]})", (epochs[best], val[best]),
-                    xytext=(3 if room_on_right else -3, 6), textcoords="offset points",
-                    ha="left" if room_on_right else "right", va="bottom",
-                    color=INK_SECONDARY, fontsize=7, zorder=5)
-
-        ax.set_title(title, color=INK, fontsize=9, fontweight="bold", loc="left", pad=6)
+        # The best value goes under the title, not beside the dot: a label
+        # inside the plot ends up on top of a curve in one panel or another.
+        ax.set_title(title, color=INK, fontsize=9, fontweight="bold", loc="left", pad=15)
+        ax.text(0, 1.03, f"best validation {val[best]:.2f}, epoch {epochs[best]}", transform=ax.transAxes,
+                ha="left", va="bottom", color=INK_SECONDARY, fontsize=7.5)
         ax.grid(axis="y", color=GRID, linewidth=0.8)
         ax.set_axisbelow(True)
         ax.spines[["top", "right", "left"]].set_visible(False)
@@ -95,7 +91,7 @@ def loss_curves(panels: list[tuple[str, str]], path, reference: tuple[str, float
     fig.legend(handles=handles, loc="upper right", ncols=len(handles), frameon=False, labelcolor=INK_SECONDARY,
                handlelength=2.6, columnspacing=1.6, borderaxespad=0.2)
 
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     for suffix in (".png", ".pdf"):
         fig.savefig(path.with_suffix(suffix), dpi=250, facecolor="white")
@@ -109,6 +105,11 @@ def main() -> None:
         [("RNN", "rnn"), ("LSTM", "lstm"), ("Transformer", "transformer")],
         FIGURES_DIR / "part1_loss_curves",
         reference=("KN trigram, validation", ngram["loss"]["validation"]),
+    )
+    # Part II: one architecture (the LSTM), three input-embedding settings.
+    loss_curves(
+        [("Random, trainable", "lstm"), ("Skip-gram, frozen", "lstm_w2v_frozen"), ("GloVe, frozen", "lstm_glove_frozen")],
+        FIGURES_DIR / "part2_loss_curves",
     )
 
 

@@ -1,0 +1,76 @@
+{
+  "settings": {
+    "temperature": 0.8,
+    "top_k": 40,
+    "max_new_tokens": 50,
+    "seed": 42
+  },
+  "generations": {
+    "lstm": [
+      {
+        "prompt": "the album was released in",
+        "continuation": "the summer for three weeks of the uk and awards . in the episode in 2005 , the game was selected as the <unk> <unk> of the game 's best <unk> . in the same year , dylan 's main series were included in the soundtrack , with \" <unk>"
+      },
+      {
+        "prompt": "during the war , the",
+        "continuation": "<unk> <unk> were able to see the series of privacy that has been found at one of the same year . <eos> the episode was directed by <unk> <unk> , <unk> , who was appointed to the united states , with a two @-@ year position in the congo ."
+      },
+      {
+        "prompt": "the species is found in",
+        "continuation": "the \" <unk> \" . she is located at home with his <unk> , which are also considered a part of the first episode of the 20th century . <eos> the cathedral has been the first episode in the inferno and that it was the other of the film 's"
+      },
+      {
+        "prompt": "in the second half of the game",
+        "continuation": ". the story have been observed by saying that their characters will be a major relationship , and that the goat had a more than a week . <eos> = = background = = <eos> the episode received positive reviews to promote a week of ten weeks in the world"
+      },
+      {
+        "prompt": "he was born in",
+        "continuation": "the 18th century , and then was an apprentice force <unk> <unk> . the song were able to create a great role on the site of the <unk> of the cathedral 's forces . it was the only time in this period of the dolmen 's <unk> and was established"
+      }
+    ],
+    "lstm_w2v_frozen": [
+      {
+        "prompt": "the album was released in",
+        "continuation": "the united states on september 15 , 1996 . its main success was a second edition of the series 's premiere in the us . <eos> = = = <unk> = = = <eos> \" sandwich \" is a single studio , the fourth studio of the soundtrack in the"
+      },
+      {
+        "prompt": "during the war , the",
+        "continuation": "<unk> was to take place from the national army army . at the end of this period , the state 's government and its amisom were formed by the <unk> of <unk> <unk> , in the united kingdom . the first to the soviet union of the republic in the"
+      },
+      {
+        "prompt": "the species is found in",
+        "continuation": "the late 2000s , and later the entire of two species have been collected by other species . the genus is derived to <unk> , and the genus is a species of a genus species . <eos> the holotype is found in a large variety of habitats in the region"
+      },
+      {
+        "prompt": "in the second half of the game",
+        "continuation": ". the main structure of this period as an annual in the 1950s and 1940s has been used in the gothic style . in the 1950s , the <unk> of the georgian alphabet is based on the site of <unk> in the center of the sacristy . it is now"
+      },
+      {
+        "prompt": "he was born in",
+        "continuation": "the united states , and on the following morning from february 28 , 1964 , to the <unk> <unk> in 1998 . the new york times made a cameo in a series with the new york times . <eos> the production of a large number of the production had been"
+      }
+    ],
+    "lstm_glove_frozen": [
+      {
+        "prompt": "the album was released in",
+        "continuation": "the uk to receive the top @-@ up demographic release for the week . on february 3 , 2008 , the <unk> <unk> , the <unk> of the united states , announced a new album , was screened in march 2005 , with the first us 's first season ,"
+      },
+      {
+        "prompt": "during the war , the",
+        "continuation": "<unk> <unk> in the united nations , mondlane and general <unk> . <eos> the next campaign , the <unk> <unk> <unk> ( <unk> <unk> ) , is the first @-@ largest of frelimo <unk> @-@ <unk> ( the <unk> ) in the united states , and the portuguese army 's"
+      },
+      {
+        "prompt": "the species is found in",
+        "continuation": "the region that had been discovered . when a second few hours , it will be the only of the closest bird , although the kakapo was a <unk> . the bird 's magnetosphere were used to have been collected , although it was a further time of its skull"
+      },
+      {
+        "prompt": "in the second half of the game",
+        "continuation": ". the episode was the highest of selling of noitulove ' top @-@ selling <unk> and the <unk> of the second @-@ year year . <eos> = = = = = <unk> , and accolades = = = = <eos> noitulove began the script , but the first series of"
+      },
+      {
+        "prompt": "he was born in",
+        "continuation": "the <unk> to <unk> <unk> ( <unk> <unk> ) — an article of \" outstanding [ <unk> \" , and it was not the only time as \" a <unk> \" of his own . <eos> = = = <unk> , = = = <eos> in the late 1970s ,"
+      }
+    ]
+  }
+}

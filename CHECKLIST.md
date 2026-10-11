@@ -8,7 +8,7 @@ Every required item from the brief, mapped to where it lives. Tick as you go. De
 - [x] RNN, LSTM, Transformer LMs with random trainable embeddings
 - [x] All models predict from preceding tokens only (causal mask checked for Transformer)
 - [x] Test perplexity on the common setup, padding excluded
-- [ ] Training time, model size, inference throughput on one common workload
+- [x] Training time, model size, inference throughput on one common workload
 - [x] Hardware, training budget, and timing procedure stated
 - [x] Train/val loss curves for the 3 neural models
 - [x] Generations: same prompts, matched decoding, same length
@@ -17,13 +17,13 @@ Every required item from the brief, mapped to where it lives. Tick as you go. De
 
 ## Part II (30)
 
-- [ ] Same architecture (LSTM), emb dim, data, and training procedure across all 3 settings
+- [x] Same architecture (LSTM), emb dim, data, and training procedure across all 3 settings
 - [x] Setting 1: random trainable (reused Part I LSTM)
-- [ ] Setting 2: own skip-gram, frozen; trained on train split only
-- [ ] Setting 3: GloVe 200d, frozen
+- [x] Setting 2: own skip-gram, frozen; trained on train split only
+- [x] Setting 3: GloVe 200d, frozen
 - [x] Vocab coverage and OOV initialization documented
-- [ ] Entire input table frozen in settings 2 and 3 (`requires_grad=False` verified)
-- [ ] Skip-gram training cost reported separately from LM training
+- [x] Entire input table frozen in settings 2 and 3 (`requires_grad=False` verified)
+- [x] Skip-gram training cost reported separately from LM training
 - [ ] Compare: test PPL, convergence, stability, generations
 - [ ] Interpret trainability vs. extra data seen by GloVe
 

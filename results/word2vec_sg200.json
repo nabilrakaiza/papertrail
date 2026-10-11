@@ -19,6 +19,6 @@
   "sentences": 23767,
   "tokens": 2075677,
   "vocabulary": 28912,
-  "train_seconds": 241.14405450000777,
+  "train_seconds": 233.18634641598328,
   "device": "cpu"
 }

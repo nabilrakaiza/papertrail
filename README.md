@@ -23,8 +23,8 @@ Every model here is trained from scratch, following the trail of classic papers 
 | I | Timing benchmark | done, results in `results/benchmark.json` |
 | I | Generations | done, samples in `results/generations.json` |
 | II | Skip-gram embeddings (own) | done, cost in `results/word2vec_sg200.json` |
-| II | LSTM + frozen skip-gram | code done and tested on a small slice, full run pending |
-| II | LSTM + frozen GloVe | code done and tested on a small slice, full run pending |
+| II | LSTM + frozen skip-gram | done, results in `results/lstm_w2v_frozen.json` |
+| II | LSTM + frozen GloVe | done, results in `results/lstm_glove_frozen.json` |
 | III | Feature extraction + logistic regression | done, results in `results/probe_agnews.json` |
 
 ## Repository layout
@@ -120,7 +120,7 @@ The tokenizer approximates WikiText-2's conventions and is not the original tool
 - `glove.6B.200d` (Wikipedia 2014 + Gigaword 5, 6B tokens, 400k uncased vocab).
 - Download: `bash scripts/download_glove.sh` (saves to `embeddings/glove.6B.200d.txt`). The script fetches `glove.6B.zip` from Stanford NLP's mirror on Hugging Face (`stanfordnlp/glove`); the original Stanford URL serves the same file but was too slow to use.
 - Coverage: 27,810 of the 28,913 vocabulary tokens have a GloVe vector (96.19%), and those tokens make up 97.37% of the training text. The most frequent missing tokens are `<eos>` and the WikiText markers `@-@`, `@.@` and `@,@`; `<unk>` is in GloVe.
-- The self-trained skip-gram vectors cover every vocabulary token except `<pad>`, which never occurs in the text. Training them took about 4 minutes on the CPU (`results/word2vec_sg200.json`), measured on a busy machine and to be re-timed.
+- The self-trained skip-gram vectors cover every vocabulary token except `<pad>`, which never occurs in the text. Training them took 233 s on the CPU (`results/word2vec_sg200.json`); this cost is separate from, and in addition to, the language-model training that uses them.
 - Missing tokens get a row drawn from a normal distribution with mean 0 and the standard deviation of the vectors that were found, from a generator seeded with the global seed. The same rule is used for the self-trained skip-gram vectors.
 
 ## Configurations
@@ -158,7 +158,7 @@ Design choices that keep the comparisons fair:
 
 ## Reproducing the results
 
-Run everything from the repository root. The first run downloads WikiText-2 into `data/`.
+Run everything from the repository root. The first run downloads WikiText-2 into `data/`. Once the datasets are cached, setting `HF_HUB_OFFLINE=1` skips the check against the Hugging Face Hub, which can otherwise stall for minutes when there is no network.
 
 Working now:
 
@@ -177,6 +177,7 @@ bash scripts/download_glove.sh
 python -m papertrail.word2vec  --config configs/part2/word2vec.yaml   # timed separately
 python -m papertrail.train     --config configs/part2/lstm_w2v_frozen.yaml
 python -m papertrail.train     --config configs/part2/lstm_glove_frozen.yaml
+python -m papertrail.generate  --configs configs/part1/lstm.yaml configs/part2/lstm_w2v_frozen.yaml configs/part2/lstm_glove_frozen.yaml --output results/generations_part2.json
 
 # Part III
 python -m papertrail.probe     --config configs/part3/probe.yaml
@@ -192,7 +193,7 @@ Outputs:
 - Best checkpoint (lowest validation loss): `runs/<run_name>/best.pt`
 - Train and validation loss and cumulative training time per epoch: `runs/<run_name>/log.json`
 - Final metrics, measured with the best checkpoint: `results/<run_name>.json`
-- Generated samples: `results/generations.json`
+- Generated samples: `results/generations.json` (Part I) and `results/generations_part2.json` (Part II)
 - Figures: `results/figures/`
 
 ## Evaluation protocol
@@ -232,28 +233,41 @@ All reported numbers come from one machine. Each `results/<run_name>.json` from 
 | GPU | Apple M1 integrated GPU, through PyTorch's `mps` backend. No CUDA. |
 | CPU | Apple M1. Used for the n-gram model. |
 | Software | Python 3.13.6, PyTorch 2.9.0 |
+| Power state | Plugged in, with macOS Low Power Mode on. This laptop is set to use Low Power Mode whenever it is on mains power, in which a training step takes about 1.7 times as long as on battery. |
 
 ## Results
 
 Part I, from `results/`. Perplexities are measured with the checkpoint that had the lowest validation loss.
 
-| Model | Params | Validation PPL | Test PPL | Epochs run (best) | Train time to best / total | Inference (tok/s) |
+| Model | Params | Validation PPL | Test PPL | Epochs run (best) | Time per epoch | Time to best | Inference (tok/s) |
+|---|---|---|---|---|---|---|---|
+| KN trigram | 1.38M trigrams | 240.66 | 226.00 | n/a | n/a | 10.2 s | 453,082 scoring targets; 9 full distribution |
+| RNN | 21.5M | 268.92 | 245.14 | 16 (13) | 475 s | 103 min | 21,084 |
+| LSTM | 24.2M | 226.13 | 210.84 | 10 (7) | 480 s | 56 min | 19,405 |
+| Transformer | 13.5M | 160.41 | 149.52 | 9 (6) | 360 s | 36 min | 32,718 |
+
+How the cost columns were measured:
+
+- **All of them are for one power state:** plugged in with Low Power Mode on, the state the RNN, Transformer and Part II runs trained in.
+- **Time per epoch** is the median time of a training step, measured for every model in a fresh process on an otherwise idle machine, times the 1,013 steps in an epoch. It is the mean of two rounds, which differed by at most 6%. Validation passes are not included.
+- **Time to best** is the best epoch times the time per epoch. For the KN trigram it is the time to count the n-grams, on the CPU.
+- **Inference** is from `results/benchmark.json`, on an idle machine. Repeats differed by at most 6%. The RNN and LSTM are close enough that their order is not reliable.
+- **Why not the wall-clock times in the results files?** They are not comparable. The RNN and Transformer trained plugged in (recorded: 106.2 and 35.3 minutes to best, in line with the table). The LSTM's final run very likely started on battery, at full speed: its first eight epochs took about 288 s each, against 480 s when measured like-for-like, and its recorded 33.3 minutes to best reflects that. The RNN's recorded time also includes two slow early epochs (846 s and 623 s) from the laptop being in use.
+
+**A PyTorch issue that affected the first LSTM run.** The LSTM was first trained with PyTorch's built-in two-layer module (`nn.LSTM(num_layers=2, dropout=0.3)`). In PyTorch 2.9 on Apple's `mps` device the dropout between that module's layers is broken: whichever mode the first call in the process uses, training or evaluation, is silently used for every later call, and in training mode the mask is the same on every call. That run was discarded. `papertrail/rnn.py` now stacks single-layer modules with an ordinary `nn.Dropout` between them, which computes the same model, and the LSTM was re-trained. The RNN (`nn.RNN`) and the Transformer were checked and are not affected. As a guard, every checkpoint is reloaded in a fresh process and must reproduce the loss recorded during training; all five do.
+
+Part II, from `results/`: one architecture (the LSTM above), three input-embedding settings. Everything else, including the random seed and so the initial value of every other weight, is identical.
+
+| Input embeddings | Trainable params | Vocabulary covered | Validation PPL | Test PPL | Epochs run (best) | Time per epoch |
 |---|---|---|---|---|---|---|
-| KN trigram | 1.38M trigrams | 240.66 | 226.00 | n/a | 10.2 s | 397,637 scoring targets; 8 full distribution |
-| RNN | 21.5M | 268.92 | 245.14 | 16 (13) | 106.2 / 128.7 min | 13,293 |
-| LSTM | 24.2M | 226.13 | 210.84 | 10 (7) | 33.3 / 56.7 min | 12,368 |
-| Transformer | 13.5M | 160.41 | 149.52 | 9 (6) | 35.3 / 52.7 min | 21,700 |
+| Random, trained with the model | 24.2M | n/a | 226.13 | 210.84 | 10 (7) | 480 s |
+| Own skip-gram, frozen | 18.4M | 28,912 of 28,913 | 155.29 | 147.01 | 13 (10) | 452 s |
+| GloVe 6B 200d, frozen | 18.4M | 27,810 of 28,913 | 178.42 | 167.55 | 13 (10) | 433 s |
 
-**The inference column is to be re-measured.** The benchmark was last run while the laptop was busy with other work, and every model came out at roughly half the speed of an earlier, quieter run. The ranking was the same in both.
-
-**A PyTorch issue that affected the first LSTM run.** The LSTM was first trained with PyTorch's built-in two-layer module (`nn.LSTM(num_layers=2, dropout=0.3)`). In PyTorch 2.9 on Apple's `mps` device the dropout between that module's layers is broken: whichever mode the first call in the process uses, training or evaluation, is silently used for every later call, and in training mode the mask is the same on every call. That run was discarded. `papertrail/rnn.py` now stacks single-layer modules with an ordinary `nn.Dropout` between them, which computes the same model, and the LSTM was re-trained. The RNN (`nn.RNN`) and the Transformer were checked and are not affected. As a guard, every checkpoint is reloaded in a fresh process and must reproduce the loss recorded during training; all three do.
-
-Notes on the timings:
-
-- The KN trigram's "train time" is the time to count the n-grams, on the CPU.
-- Neural training times cover the training passes only, on the M1 GPU. A typical epoch took about 451 s (RNN), 288 s (LSTM) and 351 s (Transformer).
-- The RNN's epochs 2 and 3 took 846 s and 623 s, against a median of 451 s, most likely because the laptop was in use at the start of the run. That adds roughly 9.5 minutes to both RNN figures.
-- The LSTM's last two epochs took 344 s and 781 s, because other work, including tests run for this project, was using the laptop. They come after its best epoch, so only its total is inflated, by roughly 9 minutes.
+- The frozen tables were checked after training and are bit-for-bit the tables the runs started with.
+- Training the skip-gram vectors took a further 233 s on the CPU.
+- The three tables differ in scale as well as in content: the random table starts with standard deviation 1.0 (PyTorch's default), the skip-gram vectors have 0.19 and GloVe's 0.43.
+- Loss curves: `results/figures/part2_loss_curves.pdf`. Samples: `results/generations_part2.json`.
 
 Part III, from `results/probe_agnews.json`: topic classification on AG News (4 balanced classes, so chance is 25%) from frozen language-model representations.
 

@@ -1,4 +1,30 @@
 {
+  "lstm": {
+    "workload": {
+      "batch_size": 32,
+      "context_length": 64,
+      "warmup_batches": 10,
+      "repeats": 3
+    },
+    "device": "mps",
+    "parameters": {
+      "total": 24178489,
+      "trainable": 24178489,
+      "embedding": 5782600
+    },
+    "checkpoint_mb": 96.719183,
+    "targets": 244101,
+    "tokens_per_second": {
+      "full_distribution": 19405.347009958088
+    },
+    "repeats": {
+      "full_distribution": [
+        19477.13236692429,
+        19628.308949449063,
+        19110.599713500913
+      ]
+    }
+  },
   "ngram_kn3": {
     "workload": {
       "batch_size": 32,
@@ -17,19 +43,19 @@
       "full_distribution": 256
     },
     "tokens_per_second": {
-      "score_targets": 397637.1116131986,
-      "full_distribution": 7.960572909510245
+      "score_targets": 453081.7612063051,
+      "full_distribution": 9.064777743978654
     },
     "repeats": {
       "score_targets": [
-        414386.6208565015,
-        391017.3435339395,
-        387507.37044915475
+        454788.5344735164,
+        439562.8996484641,
+        464893.8494969349
       ],
       "full_distribution": [
-        8.469176848531907,
-        8.150901751415791,
-        7.261640128583037
+        9.085883179449901,
+        9.030379585982557,
+        9.078070466503508
       ]
     }
   },
@@ -49,39 +75,13 @@
     "checkpoint_mb": 86.028367,
     "targets": 244101,
     "tokens_per_second": {
-      "full_distribution": 13292.73442343555
+      "full_distribution": 21083.996588172497
     },
     "repeats": {
       "full_distribution": [
-        13117.014769293648,
-        12866.122101947765,
-        13895.066399065237
-      ]
-    }
-  },
-  "lstm": {
-    "workload": {
-      "batch_size": 32,
-      "context_length": 64,
-      "warmup_batches": 10,
-      "repeats": 3
-    },
-    "device": "mps",
-    "parameters": {
-      "total": 24178489,
-      "trainable": 24178489,
-      "embedding": 5782600
-    },
-    "checkpoint_mb": 96.719183,
-    "targets": 244101,
-    "tokens_per_second": {
-      "full_distribution": 12368.272524272194
-    },
-    "repeats": {
-      "full_distribution": [
-        11740.901114856233,
-        12430.249688173037,
-        12933.66676978731
+        20799.35856494928,
+        21231.858203953736,
+        21220.77299561448
       ]
     }
   },
@@ -101,13 +101,13 @@
     "checkpoint_mb": 54.122111,
     "targets": 244101,
     "tokens_per_second": {
-      "full_distribution": 21699.683710554873
+      "full_distribution": 32718.305771697593
     },
     "repeats": {
       "full_distribution": [
-        20591.362138206063,
-        22937.501777305482,
-        21570.187216153077
+        31700.690604017494,
+        33112.86217121072,
+        33341.364539864575
       ]
     }
   }
