@@ -1,0 +1,98 @@
+{
+  "settings": {
+    "temperature": 0.8,
+    "top_k": 40,
+    "max_new_tokens": 50,
+    "seed": 42
+  },
+  "generations": {
+    "ngram_kn3": [
+      {
+        "prompt": "the album was released in",
+        "continuation": "the last game and the british empire casualties , \" \" and \" the song . the ship 's cargo ship . the two <unk> , <unk> <unk> , and <unk> ( a ) has been a member of the first single , \" <unk> \" . he is <unk>"
+      },
+      {
+        "prompt": "during the war , the",
+        "continuation": "<unk> , with a <unk> \" . however , due to an end . he has been a long time , the first half of the country , and the city , new york yankees in the <unk> . the film . the album , confessions , they have been"
+      },
+      {
+        "prompt": "the species is found in",
+        "continuation": "the last game and the british empire casualties , \" \" and \" the song . the ship 's cargo ship . the two <unk> , <unk> <unk> , and <unk> ( a ) has been a member of the first single , \" <unk> \" . he is <unk>"
+      },
+      {
+        "prompt": "in the second half of the game",
+        "continuation": "'s writing career was not able to create an annual gross ( valued at £ <unk> , <unk> <unk> and <unk> of <unk> and <unk> . the first time in the series was created . it was a member of # 3 @.@ 4 in ) . in his own"
+      },
+      {
+        "prompt": "he was born in",
+        "continuation": "<unk> . on april 20 in ) over two to three <unk> , <unk> . this was a \" <unk> \" . the two <unk> , <unk> <unk> , and <unk> ( a ) has been a member of the first single , \" <unk> \" . he is <unk>"
+      }
+    ],
+    "rnn": [
+      {
+        "prompt": "the album was released in",
+        "continuation": "the 2000s season at the start of 14 august 1935 . a month of 3 : 10 , 2013 , also criticized a single film award for the game . the film is a fictional series of \" ulysses \" ( <unk> <unk> ) . the episode also criticized the"
+      },
+      {
+        "prompt": "during the war , the",
+        "continuation": "766th was a \" <unk> of the length , where no can be found for each of the first time . <eos> the portuguese facade of the premaxillary of the soviets 's grammar school in the congo was serialised 's old style , as a <unk> of the belgian congo"
+      },
+      {
+        "prompt": "the species is found in",
+        "continuation": "the jovian texts to the portuguese . at night he found for the city in september , when the german president of <unk> ( <unk> ) <unk> , <unk> <unk> ( <unk> ; <unk> de <unk> ) ; the film has written by a single sequence of a major sketch"
+      },
+      {
+        "prompt": "in the second half of the game",
+        "continuation": ", a \" modern \" the <unk> the american reporter \" to the <unk> and roll of the series . <eos> = = production = = <eos> the episode was written for netflix , who was released on the album and a series of the show 's first album ."
+      },
+      {
+        "prompt": "he was born in",
+        "continuation": "the aftermath of the second stages of africa and also supported with the naacp , but the only cause of the male 's moons was not , with the <unk> <unk> of stonehenge . a common starling , is located on the north american <unk> <unk> <unk> , a <unk>"
+      }
+    ],
+    "lstm": [
+      {
+        "prompt": "the album was released in",
+        "continuation": "the summer for three weeks of the uk and awards . in the episode in 2005 , the game was selected as the <unk> <unk> of the game 's best <unk> . in the same year , dylan 's main series were included in the soundtrack , with \" <unk>"
+      },
+      {
+        "prompt": "during the war , the",
+        "continuation": "<unk> <unk> were able to see the series of privacy that has been found at one of the same year . <eos> the episode was directed by <unk> <unk> , <unk> , who was appointed to the united states , with a two @-@ year position in the congo ."
+      },
+      {
+        "prompt": "the species is found in",
+        "continuation": "the \" <unk> \" . she is located at home with his <unk> , which are also considered a part of the first episode of the 20th century . <eos> the cathedral has been the first episode in the inferno and that it was the other of the film 's"
+      },
+      {
+        "prompt": "in the second half of the game",
+        "continuation": ". the story have been observed by saying that their characters will be a major relationship , and that the goat had a more than a week . <eos> = = background = = <eos> the episode received positive reviews to promote a week of ten weeks in the world"
+      },
+      {
+        "prompt": "he was born in",
+        "continuation": "the 18th century , and then was an apprentice force <unk> <unk> . the song were able to create a great role on the site of the <unk> of the cathedral 's forces . it was the only time in this period of the dolmen 's <unk> and was established"
+      }
+    ],
+    "transformer": [
+      {
+        "prompt": "the album was released in",
+        "continuation": "the united states . <eos> in the album , in the united states on august 25 , 2015 , the album was released as a single album . the album received positive reviews from critics . the lyrics were generally critical of \" lukewarm \" and \" . in the"
+      },
+      {
+        "prompt": "during the war , the",
+        "continuation": "766th was in order to create a heavy emplacement at about 20 km / h ( 11 mph ) . the 766th regiment 's regiment was made up to 40 km ( 1 @.@ 5 mi ) south of the north korean troops on the west . the 766th regiment"
+      },
+      {
+        "prompt": "the species is found in",
+        "continuation": "the common starling , and <unk> . species of mkhedruli inscriptions has been used by barnum brown and the <unk> lek breeding season . <eos> = = = <unk> = = = <eos> the <unk> of the <unk> ( c ( april 21 , 1998 ) is an active species"
+      },
+      {
+        "prompt": "in the second half of the game",
+        "continuation": ", and is made to become a top for two . he was a major <unk> game of the game . he also said that he had been \" a really distant voice \" for the game \" . <eos> he stated that the game 's \" a <unk> \""
+      },
+      {
+        "prompt": "he was born in",
+        "continuation": "<unk> <unk> county . <eos> the cathedral remains of other works such as <unk> . this is a <unk> <unk> centre with the chapels of the 12th century , and is located atop the chapel of the <unk> chapel of <unk> and <unk> . the cathedral is the <unk> of"
+      }
+    ]
+  }
+}
