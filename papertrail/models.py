@@ -1,4 +1,7 @@
-"""Build a neural language model from a config, and count its parameters."""
+"""Build a neural language model from a config or a checkpoint, and count its parameters."""
+from pathlib import Path
+
+import torch
 from torch import nn
 
 from papertrail.rnn import RecurrentLM
@@ -12,14 +15,15 @@ def build_model(config: dict, vocab_size: int) -> nn.Module:
 
         logits, state = model(inputs, state)      # logits: (batch, time, vocab_size)
         hidden, state = model.features(inputs)    # hidden: (batch, time, width)
+
+    The input embeddings always start random here. For the Part II runs,
+    `init_embeddings` in papertrail/embeddings.py then replaces and freezes them.
     """
     model = config["model"]
 
-    # Refuse settings this function does not act on, rather than ignore them.
+    # Refuse a setting this function does not act on, rather than ignore it.
     if model["tie_weights"]:
         raise NotImplementedError("tie_weights: no model in this project ties its embeddings")
-    if model["emb_init"] != "random" or model["freeze_emb"]:
-        raise NotImplementedError("pretrained and frozen embeddings (Part II) are not written yet")
 
     if model["type"] in ("rnn", "lstm"):
         return RecurrentLM(
@@ -43,6 +47,19 @@ def build_model(config: dict, vocab_size: int) -> nn.Module:
             model["max_len"],
         )
     raise ValueError(f"unknown model type: {model['type']!r}")
+
+
+def load_checkpoint(path: str | Path, device: torch.device) -> tuple[nn.Module, dict]:
+    """Rebuild a model saved by the training loop, with its trained weights.
+
+    Returns the model, in evaluation mode, and the checkpoint dict, which also
+    holds the run's config, vocabulary size, best epoch and validation loss.
+    """
+    checkpoint = torch.load(path, map_location=device)
+    model = build_model(checkpoint["config"], checkpoint["vocab_size"]).to(device)
+    model.load_state_dict(checkpoint["model"])
+    model.eval()
+    return model, checkpoint
 
 
 def count_parameters(model: nn.Module) -> dict[str, int]:
