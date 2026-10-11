@@ -1,0 +1,599 @@
+{
+  "run_name": "probe_agnews",
+  "task": {
+    "dataset": "fancyzhx/ag_news",
+    "n_train": 10000,
+    "n_val": 2000,
+    "test": "full",
+    "max_len": 64,
+    "vocab_from": "wikitext2"
+  },
+  "classifier": {
+    "type": "logistic_regression",
+    "C_grid": [
+      0.01,
+      0.1,
+      1.0,
+      10.0
+    ],
+    "max_iter": 2000,
+    "select_on": "val_macro_f1"
+  },
+  "classes": [
+    "World",
+    "Sports",
+    "Business",
+    "Sci/Tech"
+  ],
+  "data": {
+    "train": {
+      "items": 10000,
+      "unk_rate": 0.06831801837794646,
+      "truncated": 0.0435
+    },
+    "validation": {
+      "items": 2000,
+      "unk_rate": 0.06940572767923175,
+      "truncated": 0.049
+    },
+    "test": {
+      "items": 7600,
+      "unk_rate": 0.0696235281376165,
+      "truncated": 0.037894736842105266
+    }
+  },
+  "probes": [
+    {
+      "model": "lstm",
+      "pooling": "mean_nonpad",
+      "width": 512,
+      "lm_test_perplexity": 210.84431060312272,
+      "C": 0.01,
+      "val_accuracy": 0.642,
+      "val_macro_f1": 0.6405740100395207,
+      "test_accuracy": 0.6289473684210526,
+      "test_macro_f1": 0.6279457995099695,
+      "per_class_f1": {
+        "World": 0.6456086286594761,
+        "Sports": 0.7284527518172378,
+        "Business": 0.56991643454039,
+        "Sci/Tech": 0.5678053830227743
+      },
+      "confusion_matrix": [
+        [
+          1257,
+          199,
+          205,
+          239
+        ],
+        [
+          187,
+          1403,
+          119,
+          191
+        ],
+        [
+          288,
+          152,
+          1023,
+          437
+        ],
+        [
+          262,
+          198,
+          343,
+          1097
+        ]
+      ],
+      "validation_by_C": [
+        {
+          "C": 0.01,
+          "val_accuracy": 0.642,
+          "val_macro_f1": 0.6405740100395207
+        },
+        {
+          "C": 0.1,
+          "val_accuracy": 0.635,
+          "val_macro_f1": 0.6335319628259342
+        },
+        {
+          "C": 1.0,
+          "val_accuracy": 0.626,
+          "val_macro_f1": 0.6245194692933947
+        },
+        {
+          "C": 10.0,
+          "val_accuracy": 0.6285,
+          "val_macro_f1": 0.6268795929111364
+        }
+      ],
+      "test_errors": 2820,
+      "error_examples": [
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9822373931615037,
+          "tokens": 25,
+          "text": "Tennis: Night final for Aus Open The centenary Australian Open will be the first Grand Slam event to stage its final at night."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9737925882420212,
+          "tokens": 31,
+          "text": "Ryder Cup: Europe close on victory Another good day at Oakland Hills sees Europe move 11-5 clear of the USA going into Sunday's Ryder Cup singles."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9706606107484027,
+          "tokens": 46,
+          "text": "Henman Sails at the Swiss Indoors &lt;p&gt;&lt;/p&gt;&lt;p&gt; By Mark Ledsom&lt;/p&gt;&lt;p&gt; BASEL (Reuters) - Britain's world number four Tim Henmanwon his opening match at the Swiss Indoors tennis tournamentwith little difficulty on Wednesday, beating Frenchman AntonyDupuis 6-3, 6-4.&lt;/p&gt;"
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9638927719123875,
+          "tokens": 41,
+          "text": "Warne takes six but India establish handy lead (Reuters) Reuters - World test wicket record holder Shane Warne grabbed six wickets as India established a handy 141-run first innings lead in the second test on Saturday."
+        },
+        {
+          "true": "Sci/Tech",
+          "predicted": "Sports",
+          "confidence": 0.9593258593440184,
+          "tokens": 53,
+          "text": "New Rainbow Six Franchise for Spring 2005 SAN FRANCISCO, CA - November 30, 2004 -Ubisoft, one of the world #39;s largest video game publishers, today announced its plans to launch the next installment in the Tom Clancy #39;s Rainbow SixR franchise for the Sony PlayStationR2 computer entertainment system "
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.955434045344068,
+          "tokens": 21,
+          "text": "Football: Azerbaijan 0-1 England Michael Owen heads England's winner in the World Cup qualifier against Azerbaijan."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9486551609720967,
+          "tokens": 25,
+          "text": "US football: Patriots' historic win New England win a record-tying 18th straight game - plus an NFL round-up."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9485422427943891,
+          "tokens": 42,
+          "text": "Ken Caminiti, 1996 NL MVP, Dies at Age 41 NEW YORK - Ken Caminiti, the 1996 National League MVP who later admitted using steroids during his major league career, died Sunday. He was 41..."
+        },
+        {
+          "true": "Sci/Tech",
+          "predicted": "World",
+          "confidence": 0.9472440106989479,
+          "tokens": 51,
+          "text": "Britain #39;s Biggest Dinosaur Found in Isle of Wight (Update1) A prehistoric neck bone found 12 years ago by amateur fossil hunters in Britain belongs to the biggest dinosaur ever discovered in the UK and possibly Europe, a report published in the Cretaceous Research Journal said today."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9457076888792297,
+          "tokens": 38,
+          "text": "Argentina Beats U.S. Men's Basketball Team Argentina defeated the United States team of National Basketball Association stars 89-81 here Friday in the Olympic semi-finals, dethroning the three-time defending champions."
+        }
+      ]
+    },
+    {
+      "model": "lstm",
+      "pooling": "last_nonpad",
+      "width": 512,
+      "lm_test_perplexity": 210.84431060312272,
+      "C": 0.01,
+      "val_accuracy": 0.478,
+      "val_macro_f1": 0.4767565873123059,
+      "test_accuracy": 0.47618421052631577,
+      "test_macro_f1": 0.4749137023127411,
+      "per_class_f1": {
+        "World": 0.5007641365257259,
+        "Sports": 0.564035546262415,
+        "Business": 0.38801868645232207,
+        "Sci/Tech": 0.44683644001050143
+      },
+      "confusion_matrix": [
+        [
+          983,
+          308,
+          306,
+          303
+        ],
+        [
+          323,
+          1079,
+          253,
+          245
+        ],
+        [
+          416,
+          268,
+          706,
+          510
+        ],
+        [
+          304,
+          271,
+          474,
+          851
+        ]
+      ],
+      "validation_by_C": [
+        {
+          "C": 0.01,
+          "val_accuracy": 0.478,
+          "val_macro_f1": 0.4767565873123059
+        },
+        {
+          "C": 0.1,
+          "val_accuracy": 0.471,
+          "val_macro_f1": 0.46979656357392485
+        },
+        {
+          "C": 1.0,
+          "val_accuracy": 0.4665,
+          "val_macro_f1": 0.46532278271228317
+        },
+        {
+          "C": 10.0,
+          "val_accuracy": 0.467,
+          "val_macro_f1": 0.46595809476443334
+        }
+      ],
+      "test_errors": 3981,
+      "error_examples": [
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9776330426033313,
+          "tokens": 41,
+          "text": "Warne takes six but India establish handy lead (Reuters) Reuters - World test wicket record holder Shane Warne grabbed six wickets as India established a handy 141-run first innings lead in the second test on Saturday."
+        },
+        {
+          "true": "Business",
+          "predicted": "Sci/Tech",
+          "confidence": 0.974393129710326,
+          "tokens": 45,
+          "text": "How Serious Is Pfizer #39;s Condition? The stock is feeling some pain these days. However, this drugmaker has enough going for it that the illness shouldn #39;t last. Amid nervousness over the future of Pfizer #39;s arthritis pain treatment Celebrex and "
+        },
+        {
+          "true": "Sci/Tech",
+          "predicted": "Business",
+          "confidence": 0.9678755006689703,
+          "tokens": 64,
+          "text": "Treo 650 on Monday? \\\\The blogs  are buzzing  that the Treo 650 will be released on Monday.\\\\From Gizmodo:\\\\\"Not only have they announced special \"news\" next Monday at the CTIA Wireless\\Conference in San Francisco, earlier this week someone with PalmOne\\accidentally sort of, you know, told me. I told them I'd keep quiet as long as\\they did, but if they're going to go and announce it with a wink and a nod, I\\think I've done my part.\"\\\\If they do this right I'll be sporting a Treo 650 soon! \\\\Of course if this is true:\\\\\"File it under hoping I'm wrong. Several reports have filtered in from people\\who have had hands-on time with pre-release Sprint versions of the upcoming\\Treo 650. These reports say that the Treo wi ...\\\\"
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9674195137802466,
+          "tokens": 48,
+          "text": "9/10/04 - INDIA-PAKISTAN DIALOGUE The foreign ministers of India and Pakistan have concluded another round of peace talks. The talks in Indias capital, New Delhi, set the stage for an expected meeting at the United Nations later this month "
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9655099318958688,
+          "tokens": 23,
+          "text": "Ukraine awaits election-deal details The Supreme Court is expected to rule Friday on rerunning the country's disputed presidential election."
+        },
+        {
+          "true": "Sci/Tech",
+          "predicted": "Business",
+          "confidence": 0.9599416145484685,
+          "tokens": 43,
+          "text": "Robot eats flies to make power A ROBOT that will generate its own power by eating flies is being developed by British scientists. The idea is to produce electricity by catching flies and digesting them in special fuel cells that will break "
+        },
+        {
+          "true": "World",
+          "predicted": "Sci/Tech",
+          "confidence": 0.9585962736814186,
+          "tokens": 64,
+          "text": "California Official Rules on Gay Marriage SAN FRANCISCO - California's constitution permits laws against gay marriage, the state's attorney general declared Friday in a long-awaited legal opinion that sought to avoid offending either side of the debate.    While acknowledging that \"committed and loving relationships between two individuals deserve recognition under California law,\" Attorney General Bill Lockyer said it was up to the voters or the Legislature to decide questions about whether gay couples should be allowed to marry..."
+        },
+        {
+          "true": "Business",
+          "predicted": "Sci/Tech",
+          "confidence": 0.9572394665634232,
+          "tokens": 43,
+          "text": "WR Grace Is Likely to Face Indictment in Montana Case By Bloomberg News. WR Grace  amp; Company, a producer of chemicals and building material that filed for bankruptcy protection in 2001 amid thousands of asbestos-related claims, said yesterday "
+        },
+        {
+          "true": "Business",
+          "predicted": "Sci/Tech",
+          "confidence": 0.9544724077077684,
+          "tokens": 42,
+          "text": "Funds: What Makes a Fund a Winner? (Reuters) Reuters - (Clint Willis is a freelance writer who covers mutual funds\\for Reuters. Any opinions in the column are solely those of Mr.\\Willis.)"
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9524734804798048,
+          "tokens": 24,
+          "text": "Rugby: Kiwis earn draw New Zealand hold Australia 16-16 in the first game of the 2004 Tri-Nations series."
+        }
+      ]
+    },
+    {
+      "model": "transformer",
+      "pooling": "mean_nonpad",
+      "width": 200,
+      "lm_test_perplexity": 149.5173360118534,
+      "C": 1.0,
+      "val_accuracy": 0.7925,
+      "val_macro_f1": 0.7920647657900979,
+      "test_accuracy": 0.7844736842105263,
+      "test_macro_f1": 0.7840239285775149,
+      "per_class_f1": {
+        "World": 0.8029235186635343,
+        "Sports": 0.8934275988478659,
+        "Business": 0.7056936647955092,
+        "Sci/Tech": 0.7340509320031504
+      },
+      "confusion_matrix": [
+        [
+          1538,
+          92,
+          147,
+          123
+        ],
+        [
+          83,
+          1706,
+          54,
+          57
+        ],
+        [
+          185,
+          64,
+          1320,
+          331
+        ],
+        [
+          125,
+          57,
+          320,
+          1398
+        ]
+      ],
+      "validation_by_C": [
+        {
+          "C": 0.01,
+          "val_accuracy": 0.782,
+          "val_macro_f1": 0.7813891646810179
+        },
+        {
+          "C": 0.1,
+          "val_accuracy": 0.7895,
+          "val_macro_f1": 0.7889324810603
+        },
+        {
+          "C": 1.0,
+          "val_accuracy": 0.7925,
+          "val_macro_f1": 0.7920647657900979
+        },
+        {
+          "C": 10.0,
+          "val_accuracy": 0.7905,
+          "val_macro_f1": 0.7899987126838199
+        }
+      ],
+      "test_errors": 1638,
+      "error_examples": [
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9998779014565314,
+          "tokens": 64,
+          "text": "Maddux Wins No. 302, Baker Wins No. 1,000 Greg Maddux pitched the Chicago Cubs into the lead in the NL wild-card race and gave Dusty Baker a win to remember. Maddux threw seven shutout innings for his 302nd career win, Baker got his 1,000th victory as a manager and Chicago beat the Montreal Expos 5-2 on Monday night..."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9998593886547716,
+          "tokens": 16,
+          "text": "England humble Sprinboks Charlie Hodgson scores 27 points as England overwhelm the Springboks at Twickenham."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9996109502328254,
+          "tokens": 49,
+          "text": "USC, Miami Top BCS Standings, Not Okla. Southern California took the top spot Monday in the season's first Bowl Championship Series standings, and surprisingly Miami is ahead of Oklahoma in a close race for the second spot.    Oklahoma is No..."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9995193499082582,
+          "tokens": 21,
+          "text": "Football: Azerbaijan 0-1 England Michael Owen heads England's winner in the World Cup qualifier against Azerbaijan."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9992035556521321,
+          "tokens": 64,
+          "text": "Dodgers Nip Giants 3-2 in Crucial Series SAN FRANCISCO - Shawn Green can sit out Saturday knowing he was a huge help to the Dodgers during their crucial series against San Francisco. Green hit a two-run homer in Los Angeles' 3-2 victory over the Giants on Friday night, a day before the first baseman will miss a game to observe the Jewish holiday Yom Kippur..."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9991547142814531,
+          "tokens": 25,
+          "text": "Tennis: Night final for Aus Open The centenary Australian Open will be the first Grand Slam event to stage its final at night."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.998215147753117,
+          "tokens": 33,
+          "text": "Collingwood anchors England (AFP) AFP - Paul Collingwood's unbeaten 80 took England to 299 for seven against Zimbabwe in their opening Champions Trophy Pool D match at Edgbaston here."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9981933600481605,
+          "tokens": 49,
+          "text": "Jones Advances in Long Jump; Johnson Out ATHENS, Greece - Marion Jones made her Athens debut in virtual anonymity, quietly advancing to the long jump final. Allen Johnson had the attention of everyone in the stadium, for all the wrong reasons..."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.997899310387436,
+          "tokens": 46,
+          "text": "Henman Sails at the Swiss Indoors &lt;p&gt;&lt;/p&gt;&lt;p&gt; By Mark Ledsom&lt;/p&gt;&lt;p&gt; BASEL (Reuters) - Britain's world number four Tim Henmanwon his opening match at the Swiss Indoors tennis tournamentwith little difficulty on Wednesday, beating Frenchman AntonyDupuis 6-3, 6-4.&lt;/p&gt;"
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9970008420756818,
+          "tokens": 57,
+          "text": "At Last, Success on the Road for Lions The Detroit Lions went three full seasons without winning an away game, setting an NFL record for road futility. They ended that ignominious streak Sunday in their first opportunity of the season, beating the Chicago Bears 20-16 at Soldier Field..."
+        }
+      ]
+    },
+    {
+      "model": "transformer",
+      "pooling": "last_nonpad",
+      "width": 200,
+      "lm_test_perplexity": 149.5173360118534,
+      "C": 10.0,
+      "val_accuracy": 0.734,
+      "val_macro_f1": 0.7322743176484652,
+      "test_accuracy": 0.7282894736842105,
+      "test_macro_f1": 0.7272681979302879,
+      "per_class_f1": {
+        "World": 0.744198040226921,
+        "Sports": 0.8385254413291796,
+        "Business": 0.6418430216983659,
+        "Sci/Tech": 0.6845062884666845
+      },
+      "confusion_matrix": [
+        [
+          1443,
+          133,
+          187,
+          137
+        ],
+        [
+          130,
+          1615,
+          86,
+          69
+        ],
+        [
+          245,
+          105,
+          1198,
+          352
+        ],
+        [
+          160,
+          99,
+          362,
+          1279
+        ]
+      ],
+      "validation_by_C": [
+        {
+          "C": 0.01,
+          "val_accuracy": 0.7185,
+          "val_macro_f1": 0.7164193766654605
+        },
+        {
+          "C": 0.1,
+          "val_accuracy": 0.731,
+          "val_macro_f1": 0.7294652147343503
+        },
+        {
+          "C": 1.0,
+          "val_accuracy": 0.7325,
+          "val_macro_f1": 0.7307997715226322
+        },
+        {
+          "C": 10.0,
+          "val_accuracy": 0.734,
+          "val_macro_f1": 0.7322743176484652
+        }
+      ],
+      "test_errors": 2065,
+      "error_examples": [
+        {
+          "true": "Business",
+          "predicted": "Sports",
+          "confidence": 0.9996840706544692,
+          "tokens": 49,
+          "text": "Calif. Lawmaker Wants to Privatize State Pensions Hoping to stem a tide of rising pension debt, a California legislator will propose a controversial overhaul on Monday that would convert traditional public employee retirement plans to privately managed 401(k)-style plans, the Los "
+        },
+        {
+          "true": "Business",
+          "predicted": "Sports",
+          "confidence": 0.9992027940000336,
+          "tokens": 44,
+          "text": "American Express sues credit card rivals American Express is suing Visa and MasterCard plus eight US banks, claiming anti-competitive tactics kept it out of the market. The litigation is the latest setback for Visa and MasterCard, which last month "
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9991458817498622,
+          "tokens": 64,
+          "text": "Maddux Wins No. 302, Baker Wins No. 1,000 Greg Maddux pitched the Chicago Cubs into the lead in the NL wild-card race and gave Dusty Baker a win to remember. Maddux threw seven shutout innings for his 302nd career win, Baker got his 1,000th victory as a manager and Chicago beat the Montreal Expos 5-2 on Monday night..."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9988938140384138,
+          "tokens": 25,
+          "text": "US football: Patriots' historic win New England win a record-tying 18th straight game - plus an NFL round-up."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9987115019312239,
+          "tokens": 33,
+          "text": "Collingwood anchors England (AFP) AFP - Paul Collingwood's unbeaten 80 took England to 299 for seven against Zimbabwe in their opening Champions Trophy Pool D match at Edgbaston here."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9983654105195897,
+          "tokens": 42,
+          "text": "Ken Caminiti, 1996 NL MVP, Dies at Age 41 NEW YORK - Ken Caminiti, the 1996 National League MVP who later admitted using steroids during his major league career, died Sunday. He was 41..."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9973441553881637,
+          "tokens": 64,
+          "text": "Men Set for Sizzling Duel in 100 Meters ATHENS, Greece - The preliminaries in the 100 meters were perhaps just a sample of what's to come Sunday, when a talented group of qualifiers - including Americans Shawn Crawford, Justin Gatlin and defending champion Maurice Greene - will try to turn their competition into the fastest show at the Athens Games.    Five men broke 10 seconds in qualifying Saturday, led by Crawford's time of 9.89..."
+        },
+        {
+          "true": "World",
+          "predicted": "Sports",
+          "confidence": 0.9967893339259712,
+          "tokens": 25,
+          "text": "Tennis: Night final for Aus Open The centenary Australian Open will be the first Grand Slam event to stage its final at night."
+        },
+        {
+          "true": "Sci/Tech",
+          "predicted": "Sports",
+          "confidence": 0.9952453468083722,
+          "tokens": 44,
+          "text": "Acer Ships 64-bit Notebook Acer America Corp. on Monday introduced a notebook based on the 64-bit mobile processor from Advanced Micro Devices Inc. The Ferrari 3400, which runs on the Mobile AMD Athlon 64 for thin and "
+        },
+        {
+          "true": "Sci/Tech",
+          "predicted": "Sports",
+          "confidence": 0.9952338941762875,
+          "tokens": 64,
+          "text": "Palm OS for Linux? \\\\Today was a strange day for the Palm OS community:\\\\\"PalmSource also plans to implement Palm OS on top of Linux, bringing the\\benefits of Palm OS to the Linux community, including the award winning user\\interface, software frameworks based on the best of Palm OS and BeOS, a large\\base of professional and consumer applications, and an enthusiastic community\\of more than 25 million users and over 360,000 registered\\developers. PalmSource intends to work as a partner within the Linux community\\to help Linux grow rapidly in the consumer and enterprise mobile markets.\"\\\\This is a great decision!  A bit to late but not much so.  When Sharp released\\the Zaurus into the US market there was a lot o ...\\\\"
+        }
+      ]
+    }
+  ]
+}

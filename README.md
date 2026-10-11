@@ -25,7 +25,7 @@ Every model here is trained from scratch, following the trail of classic papers 
 | II | Skip-gram embeddings (own) | done, cost in `results/word2vec_sg200.json` |
 | II | LSTM + frozen skip-gram | code done and tested on a small slice, full run pending |
 | II | LSTM + frozen GloVe | code done and tested on a small slice, full run pending |
-| III | Feature extraction + logistic regression | todo |
+| III | Feature extraction + logistic regression | done, results in `results/probe_agnews.json` |
 
 ## Repository layout
 
@@ -47,6 +47,8 @@ papertrail/
 │   ├── word2vec.py     # skip-gram vectors on the train split (gensim)
 │   ├── embeddings.py   # load skip-gram or GloVe vectors into a model, freeze them
 │   ├── agnews.py       # AG News subsets, tokenized into the WikiText-2 vocabulary
+│   ├── pooling.py      # mean and last-token pooling of hidden states
+│   ├── probe.py        # frozen-LM features + logistic regression on AG News
 │   ├── benchmark.py    # inference throughput and model size
 │   ├── generate.py     # sampled continuations with matched decoding
 │   ├── report_figs.py  # figures for the report
@@ -176,17 +178,13 @@ python -m papertrail.word2vec  --config configs/part2/word2vec.yaml   # timed se
 python -m papertrail.train     --config configs/part2/lstm_w2v_frozen.yaml
 python -m papertrail.train     --config configs/part2/lstm_glove_frozen.yaml
 
+# Part III
+python -m papertrail.probe     --config configs/part3/probe.yaml
+
 # Inspect a resolved config, or the corpus statistics
 python -m papertrail.config    configs/part2/lstm_glove_frozen.yaml
 python -m papertrail.data      configs/base.yaml
 python -m papertrail.agnews    configs/part3/probe.yaml
-```
-
-Planned, not written yet (the interface each script will expose):
-
-```bash
-# Part III
-python -m papertrail.probe     --config configs/part3/probe.yaml
 ```
 
 Outputs:
@@ -213,7 +211,7 @@ Outputs:
 
 **Generation.** The same 5 prompts for every model, temperature 0.8, top-k 40, 50 new tokens. One sampling function serves all four models, and the random generator is re-seeded with 42 at the start of every continuation, so each model faces the same random draws for a given prompt. Generation continues past `<eos>` so that every sample has the same length.
 
-**Part III.** Two fixed-length representations from frozen LMs: mean of token hidden states excluding `<pad>`, and the last non-pad hidden state. Classifier: multinomial logistic regression (scikit-learn), regularization `C` chosen on the validation subset, test set evaluated once. Metrics: accuracy and macro-F1.
+**Part III.** Two fixed-length representations from frozen LMs, both built from the final layer's hidden states: their mean over the real tokens (excluding `<pad>`), and the hidden state at the last real token. Classifier: multinomial logistic regression (scikit-learn) on standardized features, with the standardization fitted on the training subset only. The regularization `C` is chosen by validation macro-F1 from the grid in the config, and the test set is evaluated once with that choice. Metrics: accuracy and macro-F1. The error examples saved for each probe are the 10 test items it got wrong with the highest confidence.
 
 ## Random seeds and determinism
 
@@ -257,6 +255,17 @@ Notes on the timings:
 - The RNN's epochs 2 and 3 took 846 s and 623 s, against a median of 451 s, most likely because the laptop was in use at the start of the run. That adds roughly 9.5 minutes to both RNN figures.
 - The LSTM's last two epochs took 344 s and 781 s, because other work, including tests run for this project, was using the laptop. They come after its best epoch, so only its total is inflated, by roughly 9 minutes.
 
+Part III, from `results/probe_agnews.json`: topic classification on AG News (4 balanced classes, so chance is 25%) from frozen language-model representations.
+
+| Language model | LM test PPL | Pooling | Chosen C | Test accuracy | Test macro-F1 |
+|---|---|---|---|---|---|
+| LSTM | 210.84 | mean | 0.01 | 62.89% | 0.628 |
+| LSTM | 210.84 | last token | 0.01 | 47.62% | 0.475 |
+| Transformer | 149.52 | mean | 1.0 | 78.45% | 0.784 |
+| Transformer | 149.52 | last token | 10.0 | 72.83% | 0.727 |
+
+Three of the four chosen values of C sit at an end of the grid (0.01 to 10). The validation macro-F1 varies by at most 0.016 across the grid for any probe, so a wider grid would change little.
+
 ## References and attribution
 
 - WikiText-2: Merity, Xiong, Bradbury, Socher. *Pointer Sentinel Mixture Models.* 2016. (CC BY-SA 3.0)
@@ -272,11 +281,12 @@ Notes on the timings:
 
 An AI coding assistant (Claude Code, Anthropic) was used substantially in this project. Commits it produced carry a `Co-Authored-By: Claude` trailer.
 
-- **Written by the assistant:** config loading (`config.py`), the data pipeline (`data.py`), the RNN and LSTM model (`rnn.py`), the training loop (`train.py`, `models.py`, `utils.py`), the benchmark (`benchmark.py`), the figures (`report_figs.py`), the Part II embedding code (`word2vec.py`, `embeddings.py`), the AG News preparation (`agnews.py`), and the repository scaffolding (configs, checklist, this README).
+- **Written by the assistant:** config loading (`config.py`), the data pipeline (`data.py`), the RNN and LSTM model (`rnn.py`), the training loop (`train.py`, `models.py`, `utils.py`), the benchmark (`benchmark.py`), the figures (`report_figs.py`), the Part II embedding code (`word2vec.py`, `embeddings.py`), the AG News preparation (`agnews.py`), the probe (`probe.py`), and the repository scaffolding (configs, checklist, this README).
 - **Written jointly:**
   - `ngram.py`: the author wrote part of the counting, the trigram level of the probability, `distribution` and `evaluate`, with review from the assistant. The assistant wrote the file structure, the remaining count tables, the bigram and unigram levels, and `main`.
   - `evaluate.py`: the author wrote the structure of the function; the assistant corrected and completed it.
   - `generate.py`: the author wrote the sampling function and the neural scoring function, with hints and review. The assistant wrote the file structure, the n-gram scoring function, the generation loop and `main`.
+  - `pooling.py`: the author wrote both functions as loops, correctly; the assistant then replaced them with equivalent loop-free versions at the author's request.
 - **Written by the author:** the Transformer (`transformer.py`), ported from the author's earlier implementation. The assistant reformatted it and adapted it to this project's interface (untied output layer, loss moved out of the model).
 
 The analysis and interpretation in the report are the author's own.

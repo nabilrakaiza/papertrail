@@ -29,10 +29,10 @@ Every required item from the brief, mapped to where it lives. Tick as you go. De
 
 ## Part III (20)
 
-- [ ] At least 2 representation choices on the same labeled data
-- [ ] How each input becomes a fixed-length vector is described
-- [ ] Same classifier family and evaluation procedure for both
-- [ ] Held-out accuracy and macro-F1
+- [x] At least 2 representation choices on the same labeled data
+- [x] How each input becomes a fixed-length vector is described
+- [x] Same classifier family and evaluation procedure for both
+- [x] Held-out accuracy and macro-F1
 - [ ] Representative errors examined
 - [ ] Does LM ranking (PPL) match downstream ranking?
 
