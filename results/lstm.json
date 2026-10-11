@@ -1,0 +1,33 @@
+{
+  "run_name": "lstm",
+  "model": {
+    "emb_dim": 200,
+    "emb_init": "random",
+    "freeze_emb": false,
+    "tie_weights": false,
+    "type": "lstm",
+    "hidden_dim": 512,
+    "num_layers": 2,
+    "dropout": 0.3
+  },
+  "vocab_size": 28913,
+  "parameters": {
+    "total": 24178489,
+    "trainable": 24178489,
+    "embedding": 5782600
+  },
+  "device": "mps",
+  "torch": "2.9.0",
+  "epochs_run": 10,
+  "best_epoch": 7,
+  "train_seconds_to_best": 2000.9663500010065,
+  "train_seconds_total": 3404.3610997100186,
+  "loss": {
+    "validation": 5.421114921508111,
+    "test": 5.351119996679941
+  },
+  "perplexity": {
+    "validation": 226.13110043565115,
+    "test": 210.84431060312272
+  }
+}

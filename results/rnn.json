@@ -1,0 +1,33 @@
+{
+  "run_name": "rnn",
+  "model": {
+    "emb_dim": 200,
+    "emb_init": "random",
+    "freeze_emb": false,
+    "tie_weights": false,
+    "type": "rnn",
+    "hidden_dim": 512,
+    "num_layers": 2,
+    "dropout": 0.3
+  },
+  "vocab_size": 28913,
+  "parameters": {
+    "total": 21505849,
+    "trainable": 21505849,
+    "embedding": 5782600
+  },
+  "device": "mps",
+  "torch": "2.9.0",
+  "epochs_run": 16,
+  "best_epoch": 13,
+  "train_seconds_to_best": 6373.872272752022,
+  "train_seconds_total": 7719.763277919003,
+  "loss": {
+    "validation": 5.594403941090024,
+    "test": 5.501837366711967
+  },
+  "perplexity": {
+    "validation": 268.91731175174914,
+    "test": 245.14193435808582
+  }
+}

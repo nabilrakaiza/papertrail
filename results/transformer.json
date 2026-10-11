@@ -1,0 +1,37 @@
+{
+  "run_name": "transformer",
+  "model": {
+    "emb_dim": 200,
+    "emb_init": "random",
+    "freeze_emb": false,
+    "tie_weights": false,
+    "type": "transformer",
+    "d_model": 200,
+    "n_heads": 4,
+    "n_layers": 4,
+    "d_ff": 800,
+    "dropout": 0.2,
+    "pos_encoding": "sinusoidal",
+    "max_len": 64
+  },
+  "vocab_size": 28913,
+  "parameters": {
+    "total": 13524513,
+    "trainable": 13524513,
+    "embedding": 5782600
+  },
+  "device": "mps",
+  "torch": "2.9.0",
+  "epochs_run": 9,
+  "best_epoch": 6,
+  "train_seconds_to_best": 2120.7055637080193,
+  "train_seconds_total": 3163.2262027910183,
+  "loss": {
+    "validation": 5.0777637983542565,
+    "test": 5.007412346053414
+  },
+  "perplexity": {
+    "validation": 160.41493440387106,
+    "test": 149.5173360118534
+  }
+}
