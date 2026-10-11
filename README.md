@@ -16,14 +16,15 @@ Every model here is trained from scratch, following the trail of classic papers 
 |---|---|---|
 | I | Data pipeline (WikiText-2, vocabulary, chunking) | done |
 | I | Interpolated Kneser-Ney trigram | done, results in `results/ngram_kn3.json` |
-| I | RNN LM | code done, not trained yet |
-| I | LSTM LM | code done, not trained yet |
-| I | Transformer LM | code done, not trained yet |
+| I | RNN LM | done, results in `results/rnn.json` |
+| I | LSTM LM | done, results in `results/lstm.json` |
+| I | Transformer LM | done, results in `results/transformer.json` |
 | I | Training loop and evaluation | done |
-| I | Timing benchmark + generations | todo |
-| II | Skip-gram embeddings (own) | todo |
-| II | LSTM + frozen skip-gram | todo |
-| II | LSTM + frozen GloVe | todo |
+| I | Timing benchmark | done, results in `results/benchmark.json` |
+| I | Generations | done, samples in `results/generations.json` |
+| II | Skip-gram embeddings (own) | done, cost in `results/word2vec_sg200.json` |
+| II | LSTM + frozen skip-gram | code done and tested on a small slice, full run pending |
+| II | LSTM + frozen GloVe | code done and tested on a small slice, full run pending |
 | III | Feature extraction + logistic regression | todo |
 
 ## Repository layout
@@ -43,6 +44,11 @@ papertrail/
 │   ├── models.py       # build a neural model from a config, count parameters
 │   ├── train.py        # training loop for the neural models
 │   ├── evaluate.py     # loss / perplexity, shared by all neural models
+│   ├── word2vec.py     # skip-gram vectors on the train split (gensim)
+│   ├── embeddings.py   # load skip-gram or GloVe vectors into a model, freeze them
+│   ├── benchmark.py    # inference throughput and model size
+│   ├── generate.py     # sampled continuations with matched decoding
+│   ├── report_figs.py  # figures for the report
 │   └── utils.py        # seeding, device choice, timing helpers
 ├── scripts/            # one-off helpers (GloVe download)
 ├── results/            # metrics JSON/CSV and figures (tracked)
@@ -100,7 +106,10 @@ Resulting corpus (`python -m papertrail.data configs/base.yaml`), vocabulary 28,
 ### GloVe (Part II)
 
 - `glove.6B.200d` (Wikipedia 2014 + Gigaword 5, 6B tokens, 400k uncased vocab).
-- Download: `bash scripts/download_glove.sh` (saves to `embeddings/glove.6B.200d.txt`).
+- Download: `bash scripts/download_glove.sh` (saves to `embeddings/glove.6B.200d.txt`). The script fetches `glove.6B.zip` from Stanford NLP's mirror on Hugging Face (`stanfordnlp/glove`); the original Stanford URL serves the same file but was too slow to use.
+- Coverage: 27,810 of the 28,913 vocabulary tokens have a GloVe vector (96.19%), and those tokens make up 97.37% of the training text. The most frequent missing tokens are `<eos>` and the WikiText markers `@-@`, `@.@` and `@,@`; `<unk>` is in GloVe.
+- The self-trained skip-gram vectors cover every vocabulary token except `<pad>`, which never occurs in the text. Training them took about 4 minutes on the CPU (`results/word2vec_sg200.json`), measured on a busy machine and to be re-timed.
+- Missing tokens get a row drawn from a normal distribution with mean 0 and the standard deviation of the vectors that were found, from a generator seeded with the global seed. The same rule is used for the self-trained skip-gram vectors.
 
 ## Configurations
 
@@ -147,6 +156,15 @@ python -m papertrail.ngram     --config configs/part1/ngram.yaml
 python -m papertrail.train     --config configs/part1/rnn.yaml
 python -m papertrail.train     --config configs/part1/lstm.yaml
 python -m papertrail.train     --config configs/part1/transformer.yaml
+python -m papertrail.benchmark --configs configs/part1/*.yaml     # inference throughput + model size
+python -m papertrail.generate  --configs configs/part1/*.yaml     # matched-decoding samples
+python -m papertrail.report_figs                                  # loss curves
+
+# Part II
+bash scripts/download_glove.sh
+python -m papertrail.word2vec  --config configs/part2/word2vec.yaml   # timed separately
+python -m papertrail.train     --config configs/part2/lstm_w2v_frozen.yaml
+python -m papertrail.train     --config configs/part2/lstm_glove_frozen.yaml
 
 # Inspect a resolved config, or the corpus statistics
 python -m papertrail.config    configs/part2/lstm_glove_frozen.yaml
@@ -156,21 +174,8 @@ python -m papertrail.data      configs/base.yaml
 Planned, not written yet (the interface each script will expose):
 
 ```bash
-# Part I
-python -m papertrail.benchmark --configs configs/part1/*.yaml     # timing + model size
-python -m papertrail.generate  --configs configs/part1/*.yaml     # matched-decoding samples
-
-# Part II
-bash scripts/download_glove.sh
-python -m papertrail.word2vec  --config configs/part2/word2vec.yaml   # timed separately
-python -m papertrail.train     --config configs/part2/lstm_w2v_frozen.yaml
-python -m papertrail.train     --config configs/part2/lstm_glove_frozen.yaml
-
 # Part III
 python -m papertrail.probe     --config configs/part3/probe.yaml
-
-# Figures and tables for the report
-python -m papertrail.report_figs
 ```
 
 Outputs:
@@ -178,6 +183,7 @@ Outputs:
 - Best checkpoint (lowest validation loss): `runs/<run_name>/best.pt`
 - Train and validation loss and cumulative training time per epoch: `runs/<run_name>/log.json`
 - Final metrics, measured with the best checkpoint: `results/<run_name>.json`
+- Generated samples: `results/generations.json`
 - Figures: `results/figures/`
 
 ## Evaluation protocol
@@ -190,11 +196,11 @@ Outputs:
 
 **Training cost.** Wall-clock training time to the best validation checkpoint and in total, number of epochs, and trainable / total parameter counts (embedding parameters reported separately). The time covers the training passes only, not the validation pass after each epoch, and the device is synchronized before each clock reading.
 
-**Inference cost.** One common workload: a full forward pass over the test stream at batch size 32 and `context_length` 64. Measured after 10 warm-up batches, with `torch.cuda.synchronize()` around the timed region, reported as tokens per second (mean of 3 repeats).
+**Inference cost.** One common workload: a full forward pass over the test stream at batch size 32 and `context_length` 64, with the trained checkpoint in evaluation mode and no gradients. Measured after 10 warm-up batches and reported as test targets per second (mean of 3 repeats). The device is synchronized after every batch, so each batch's output is fully computed before the next is submitted. A neural forward pass produces a full distribution over the vocabulary at every position. The n-gram model does not need one to score a known next token, so it gets two numbers: scoring each actual target (all 244,101, a few dictionary lookups each), and producing the full distribution (timed on the first 256 positions only, because it takes about 0.07 s per position in pure Python).
 
 **Learning behaviour.** Train and validation loss per epoch for every neural run, plotted on shared axes.
 
-**Generation.** The same 5 prompts for every model, temperature 0.8, top-k 40, 50 new tokens, seed 42. The n-gram uses the same sampling procedure.
+**Generation.** The same 5 prompts for every model, temperature 0.8, top-k 40, 50 new tokens. One sampling function serves all four models, and the random generator is re-seeded with 42 at the start of every continuation, so each model faces the same random draws for a given prompt. Generation continues past `<eos>` so that every sample has the same length.
 
 **Part III.** Two fixed-length representations from frozen LMs: mean of token hidden states excluding `<pad>`, and the last non-pad hidden state. Classifier: multinomial logistic regression (scikit-learn), regularization `C` chosen on the validation subset, test set evaluated once. Metrics: accuracy and macro-F1.
 
@@ -202,33 +208,43 @@ Outputs:
 
 - Global seed: `42` (Python, NumPy, PyTorch, CUDA), set in every entry point that uses randomness. The n-gram model uses none.
 - `torch.backends.cudnn.deterministic = True`, `torch.backends.cudnn.benchmark = False`.
-- Skip-gram: `gensim` with `workers=1` and `PYTHONHASHSEED=42` (gensim is only reproducible single-threaded).
+- Skip-gram: `gensim` with `workers=1` and `seed=42` (gensim is only reproducible single-threaded). Two runs gave bit-identical vectors, without setting `PYTHONHASHSEED`.
 - AG News subsampling and OOV embedding initialization use the same seed.
 - Two CPU runs of the training loop with the same seed give identical losses. This has not been checked on a GPU, where some operations are not deterministic.
 - All main results are from a single seed because of the compute budget. This is stated as a limitation in the report.
 
 ## Hardware
 
-To be filled in with the exact GPU, CPU, and library versions used for the reported numbers. Each `results/<run_name>.json` from the training loop records the device and PyTorch version it ran on. The configs ask for `cuda`; on a machine without it the code falls back to Apple `mps`, then to `cpu`, and prints which one it used.
+All reported numbers come from one machine. Each `results/<run_name>.json` from the training loop records the device and PyTorch version it ran on. The configs ask for `cuda`; on a machine without it the code falls back to Apple `mps`, then to `cpu`, and prints which one it used.
 
 | Item | Value |
 |---|---|
-| GPU | TBD |
-| CPU | TBD |
-| PyTorch / CUDA | TBD |
+| Machine | Apple M1 laptop, 8 cores, 8 GB unified memory, macOS 26.0 |
+| GPU | Apple M1 integrated GPU, through PyTorch's `mps` backend. No CUDA. |
+| CPU | Apple M1. Used for the n-gram model. |
+| Software | Python 3.13.6, PyTorch 2.9.0 |
 
 ## Results
 
-Filled in from `results/` as runs finish. The neural models have not been trained yet.
+Part I, from `results/`. Perplexities are measured with the checkpoint that had the lowest validation loss.
 
-| Model | Params | Test PPL | Train time | Inference (tok/s) |
-|---|---|---|---|---|
-| KN trigram | 1.38M trigrams | 226.00 | 10.2 s | |
-| RNN | 21.5M | | | |
-| LSTM | 24.2M | | | |
-| Transformer | 13.5M | | | |
+| Model | Params | Validation PPL | Test PPL | Epochs run (best) | Train time to best / total | Inference (tok/s) |
+|---|---|---|---|---|---|---|
+| KN trigram | 1.38M trigrams | 240.66 | 226.00 | n/a | 10.2 s | 397,637 scoring targets; 8 full distribution |
+| RNN | 21.5M | 268.92 | 245.14 | 16 (13) | 106.2 / 128.7 min | 13,293 |
+| LSTM | 24.2M | 226.13 | 210.84 | 10 (7) | 33.3 / 56.7 min | 12,368 |
+| Transformer | 13.5M | 160.41 | 149.52 | 9 (6) | 35.3 / 52.7 min | 21,700 |
 
-The KN trigram's validation perplexity is 240.66. Its "train time" is the time to count the n-grams, measured on an Apple M1 CPU.
+**The inference column is to be re-measured.** The benchmark was last run while the laptop was busy with other work, and every model came out at roughly half the speed of an earlier, quieter run. The ranking was the same in both.
+
+**A PyTorch issue that affected the first LSTM run.** The LSTM was first trained with PyTorch's built-in two-layer module (`nn.LSTM(num_layers=2, dropout=0.3)`). In PyTorch 2.9 on Apple's `mps` device the dropout between that module's layers is broken: whichever mode the first call in the process uses, training or evaluation, is silently used for every later call, and in training mode the mask is the same on every call. That run was discarded. `papertrail/rnn.py` now stacks single-layer modules with an ordinary `nn.Dropout` between them, which computes the same model, and the LSTM was re-trained. The RNN (`nn.RNN`) and the Transformer were checked and are not affected. As a guard, every checkpoint is reloaded in a fresh process and must reproduce the loss recorded during training; all three do.
+
+Notes on the timings:
+
+- The KN trigram's "train time" is the time to count the n-grams, on the CPU.
+- Neural training times cover the training passes only, on the M1 GPU. A typical epoch took about 451 s (RNN), 288 s (LSTM) and 351 s (Transformer).
+- The RNN's epochs 2 and 3 took 846 s and 623 s, against a median of 451 s, most likely because the laptop was in use at the start of the run. That adds roughly 9.5 minutes to both RNN figures.
+- The LSTM's last two epochs took 344 s and 781 s, because other work, including tests run for this project, was using the laptop. They come after its best epoch, so only its total is inflated, by roughly 9 minutes.
 
 ## References and attribution
 
@@ -245,10 +261,11 @@ The KN trigram's validation perplexity is 240.66. Its "train time" is the time t
 
 An AI coding assistant (Claude Code, Anthropic) was used substantially in this project. Commits it produced carry a `Co-Authored-By: Claude` trailer.
 
-- **Written by the assistant:** config loading (`config.py`), the data pipeline (`data.py`), the RNN and LSTM model (`rnn.py`), the training loop (`train.py`, `models.py`, `utils.py`), and the repository scaffolding (configs, checklist, this README).
+- **Written by the assistant:** config loading (`config.py`), the data pipeline (`data.py`), the RNN and LSTM model (`rnn.py`), the training loop (`train.py`, `models.py`, `utils.py`), the benchmark (`benchmark.py`), the figures (`report_figs.py`), the Part II embedding code (`word2vec.py`, `embeddings.py`), and the repository scaffolding (configs, checklist, this README).
 - **Written jointly:**
   - `ngram.py`: the author wrote part of the counting, the trigram level of the probability, `distribution` and `evaluate`, with review from the assistant. The assistant wrote the file structure, the remaining count tables, the bigram and unigram levels, and `main`.
   - `evaluate.py`: the author wrote the structure of the function; the assistant corrected and completed it.
+  - `generate.py`: the author wrote the sampling function and the neural scoring function, with hints and review. The assistant wrote the file structure, the n-gram scoring function, the generation loop and `main`.
 - **Written by the author:** the Transformer (`transformer.py`), ported from the author's earlier implementation. The assistant reformatted it and adapted it to this project's interface (untied output layer, loss moved out of the model).
 
 The analysis and interpretation in the report are the author's own.
