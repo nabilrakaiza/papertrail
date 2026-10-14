@@ -28,7 +28,7 @@
 \section{Setup}
 % ---------------------------------------------------------------------------
 
-\todo{One or two sentences on the comparison question the report is organized around (the brief asks for one).}
+This report asks how four families of language model (an interpolated Kneser-Ney trigram, an RNN, an LSTM and a Transformer) compare at next-token prediction on WikiText-2 (Part~I); whether fixed pretrained input embeddings help or hurt compared with embeddings learned jointly with the model (Part~II); and whether a better language model also gives better representations for a downstream task, topic classification on AG News (Part~III).
 
 \paragraph{Data.} WikiText-2 (\tok{wikitext-2-v1}, the pre-tokenized release), with its official splits. Text is lowercased, empty lines are dropped and every remaining line ends with \tok{<eos>}. The vocabulary is built from the training split only (28,913 types including \tok{<pad>}, \tok{<unk>} and \tok{<eos>}); validation and test words outside it become \tok{<unk>}. Each split is one token stream: 2.08M training, 216K validation and 244K test tokens. The neural models read it in contiguous chunks of 64 tokens.
 
