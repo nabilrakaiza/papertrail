@@ -66,7 +66,7 @@ All neural models are trained the same way: AdamW (weight decay 0.01), batch siz
 
 Every model predicts each target from preceding tokens only: the recurrent models read left to right, the Transformer uses a causal attention mask, and the trigram conditions on the two previous tokens. For each neural model this was checked directly: changing the token at one position leaves every prediction at earlier positions unchanged.
 
-The four models come from different families (counting, recurrence and attention), so their sizes are not matched: each was sized to train in reasonable time on the laptop. What is held equal is everything around them: the training procedure, the epoch budget and early stopping, the context length and the evaluation. None of the models was tuned.
+The four models come from different families (counting, recurrence and attention), so their sizes are not matched: each was sized to train in reasonable time on the laptop. What is held equal is everything around them: the optimizer, batch size, epoch budget and early stopping, the context length and the evaluation. The one exception is the learning rate: the Transformer uses a lower peak rate with warm-up and cosine decay, because a post-LN Transformer tends to diverge without warm-up. None of the models was tuned.
 
 \subsection{Results}
 
