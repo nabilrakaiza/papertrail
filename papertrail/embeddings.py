@@ -63,6 +63,11 @@ def build_table(vocab: Vocab, vectors: dict[str, np.ndarray], dim: int, seed: in
     return table, missing
 
 
+def input_embedding(model: nn.Module) -> nn.Embedding:
+    """The model's input embedding table: `embedding` in the RNN/LSTM, `embeddings.lut` in the Transformer."""
+    return model.embedding if hasattr(model, "embedding") else model.embeddings.lut
+
+
 def init_embeddings(model: nn.Module, config: dict, vocab: Vocab, train_stream: torch.Tensor) -> dict:
     """Set up the model's input embedding table as the config asks.
 
@@ -74,20 +79,28 @@ def init_embeddings(model: nn.Module, config: dict, vocab: Vocab, train_stream: 
         assert not settings["freeze_emb"], "a frozen random table is not one of the Part II settings"
         return {"init": "random", "frozen": False}
 
-    if not hasattr(model, "embedding"):
-        raise NotImplementedError("pretrained embeddings are only set up for the RNN and LSTM models")
     assert settings["oov_init"] == "normal_matched_std", f"unknown oov_init: {settings['oov_init']!r}"
 
     vectors = load_vectors(REPO_ROOT / settings["emb_path"], set(vocab.itos))
     table, missing = build_table(vocab, vectors, settings["emb_dim"], config["seed"])
+    original_std = table.std().item()
 
+    # Optional: scale the whole table by one constant so its standard deviation
+    # is `emb_rescale_std`. Every vector keeps its direction and the distances
+    # between vectors keep their ratios. The Transformer needs this: it
+    # multiplies embeddings by sqrt(d_model) before adding the position signal,
+    # and is built for a table at its own initial scale (std 0.02).
+    if "emb_rescale_std" in settings:
+        table = table * (settings["emb_rescale_std"] / original_std)
+
+    embedding = input_embedding(model)
     with torch.no_grad():
-        model.embedding.weight.copy_(table)
+        embedding.weight.copy_(table)
     if settings["freeze_emb"]:
         # The whole table, including the rows of missing and special tokens.
         # A parameter that does not require gradients is never updated, and
         # train.py also leaves it out of the optimizer.
-        model.embedding.weight.requires_grad_(False)
+        embedding.weight.requires_grad_(False)
 
     # Coverage two ways: by vocabulary entry, and by how often those entries
     # actually occur in the training text.
@@ -102,6 +115,7 @@ def init_embeddings(model: nn.Module, config: dict, vocab: Vocab, train_stream: 
         "covered": len(vocab) - len(missing),
         "coverage_of_vocabulary": 1 - len(missing) / len(vocab),
         "coverage_of_train_tokens": 1 - missing_occurrences / len(train_stream),
-        "vector_std": table.std().item(),
+        "vector_std": original_std,
+        "rescaled_std": table.std().item(),
         "missing_examples": missing[:30],
     }

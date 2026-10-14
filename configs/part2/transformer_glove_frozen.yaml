@@ -1,0 +1,9 @@
+inherit: configs/part1/transformer.yaml
+run_name: transformer_glove_frozen             # optional extension: Part II's frozen embeddings on the Transformer
+
+model:
+  emb_init: glove
+  emb_path: embeddings/glove.6B.200d.txt
+  freeze_emb: true           # entire input table frozen
+  oov_init: normal_matched_std
+  emb_rescale_std: 0.02      # the Transformer's own initial scale; it multiplies embeddings by sqrt(200)

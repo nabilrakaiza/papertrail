@@ -1,0 +1,9 @@
+inherit: configs/part1/transformer.yaml
+run_name: transformer_w2v_frozen             # optional extension: Part II's frozen embeddings on the Transformer
+
+model:
+  emb_init: word2vec
+  emb_path: embeddings/w2v_sg200_wikitext2.kv
+  freeze_emb: true           # entire input table frozen
+  oov_init: normal_matched_std
+  emb_rescale_std: 0.02      # the Transformer's own initial scale; it multiplies embeddings by sqrt(200)

@@ -18,7 +18,7 @@ from torch.optim.lr_scheduler import LambdaLR
 
 from papertrail.config import REPO_ROOT, load_config
 from papertrail.data import SPLITS, chunk, load_corpus, sequential_batches
-from papertrail.embeddings import init_embeddings
+from papertrail.embeddings import init_embeddings, input_embedding
 from papertrail.evaluate import evaluate
 from papertrail.models import build_model, count_parameters
 from papertrail.rnn import detach
@@ -110,7 +110,7 @@ def train(config: dict) -> dict:
     model = build_model(config, len(vocab))
     embedding = init_embeddings(model, config, vocab, streams["train"])
     model = model.to(device)
-    frozen_table = model.embedding.weight.detach().clone() if embedding["frozen"] else None
+    frozen_table = input_embedding(model).weight.detach().clone() if embedding["frozen"] else None
     parameters = count_parameters(model)
     optimizer = torch.optim.AdamW(
         [p for p in model.parameters() if p.requires_grad],
@@ -156,7 +156,7 @@ def train(config: dict) -> dict:
     if frozen_table is not None:
         # Evidence that freezing worked: the table in the final model is, bit
         # for bit, the one it started with.
-        embedding["unchanged_after_training"] = torch.equal(model.embedding.weight, frozen_table)
+        embedding["unchanged_after_training"] = torch.equal(input_embedding(model).weight, frozen_table)
     results = {
         "run_name": config["run_name"],
         "model": config["model"],
