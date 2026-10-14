@@ -2,8 +2,8 @@
 %
 % Red [TODO] notes mark what is still to be written or decided. Numbers come
 % from the files in results/; the file is named next to each table and figure.
-% Figures are read from ../results/figures/ (upload that folder too if you
-% compile on Overleaf).
+% Figures are read from ../results/figures/ when compiled inside the repo, or
+% from a figures/ folder next to this file (the layout to use on Overleaf).
 
 \documentclass[10pt]{article}
 \usepackage[a4paper, margin=2cm]{geometry}
@@ -12,7 +12,7 @@
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{amsmath}
-\graphicspath{{../results/figures/}}
+\graphicspath{{../results/figures/}{figures/}}  % the first works in the repo, the second on Overleaf
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\tok}[1]{\texttt{#1}}
