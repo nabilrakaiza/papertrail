@@ -160,7 +160,58 @@ With the slow start removed (strided), the RNN moves from behind the trigram to 
 % ---------------------------------------------------------------------------
 \section{Part II: Embedding variants}
 % ---------------------------------------------------------------------------
-\todo{Next.}
+
+\subsection{Setup}
+
+The LSTM from Part~I is trained with three input-embedding settings. Everything except the input embedding table is identical across them: architecture, embedding size (200), data, training procedure and random seed, so every other weight starts from the same value.
+
+\begin{enumerate}
+\item \textbf{Random, trainable.} The Part~I LSTM itself: a random table learned jointly with the model.
+\item \textbf{Own skip-gram, frozen.} 200-dimensional skip-gram vectors trained with gensim on the WikiText-2 training split only (window 5, 10 negative samples, 10 epochs), one line per sentence. They cover every vocabulary token except \tok{<pad>}, which never occurs. Training them took 233\,s on the CPU, in addition to the language-model training.
+\item \textbf{GloVe, frozen.} The public \tok{glove.6B.200d} vectors, trained on 6B tokens of Wikipedia and Gigaword. They cover 27,810 of the 28,913 vocabulary tokens (96.2\%), which make up 97.4\% of the training text. The most frequent missing tokens are \tok{<eos>} (23,767 occurrences in training) and the WikiText markers \tok{@-@}, \tok{@.@} and \tok{@,@}.
+\end{enumerate}
+
+In both frozen settings a token without a vector gets a row drawn from a normal distribution with mean 0 and the standard deviation of the vectors that were found, from a seeded generator. The \emph{entire} table, these rows included, is frozen; after training it was checked to be bit-for-bit unchanged. Freezing leaves 18.4M trainable parameters, against 24.2M in the random setting.
+
+The settings are built to answer two questions. Settings 1 and 2 both learn their embeddings from the same WikiText-2 training text; they differ in whether the embeddings are learned jointly with the language model and kept trainable, or learned separately and then frozen. Settings 2 and 3 are both learned separately and frozen; they differ in the data the embeddings were trained on (2M WikiText tokens against 6B tokens of general text), and also in the method (skip-gram against GloVe), so this second comparison does not isolate the data alone.
+
+\subsection{Results}
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lrrcccr}
+\toprule
+Input embeddings & Trainable params & Coverage & Val PPL & Test PPL & Epochs (best) & s / epoch \\
+\midrule
+Random, trainable & 24.2M & -- & 226.13 & 210.84 & 10 (7) & 480 \\
+Own skip-gram, frozen & 18.4M & 100\% & 155.29 & \textbf{147.01} & 13 (10) & 452 \\
+GloVe, frozen & 18.4M & 96.2\% & 178.42 & 167.55 & 13 (10) & 433 \\
+\bottomrule
+\end{tabular}
+\caption{Part II results (\tok{results/lstm*.json}). Coverage is the share of vocabulary tokens with a pretrained vector. Time per epoch is measured as in Table~\ref{tab:part1}.}
+\label{tab:part2}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{part2_loss_curves.pdf}
+\caption{Training and validation loss per epoch for the three embedding settings. The dot marks the kept checkpoint.}
+\label{fig:part2curves}
+\end{figure}
+
+\paragraph{Prediction quality.} Both frozen settings beat the random, trainable one by a wide margin: test perplexity 147.01 with the skip-gram vectors and 167.55 with GloVe, against 210.84. The frozen skip-gram LSTM is also slightly better than the Part~I Transformer (149.52).
+
+\paragraph{Convergence and stability.} After one epoch the three settings are level (validation loss 5.91, 5.93 and 5.99). From the second epoch on, both frozen settings have the lower validation loss at every epoch, and they keep improving for longer: their best epoch is 10, against 7 for the random setting, whose validation loss then rises (Figure~\ref{fig:part2curves}). After the first epoch all three curves are smooth; the random setting's best epoch is a small dip (5.482, 5.421, 5.456 over epochs 6 to 8), while the frozen settings flatten out steadily. Per epoch, the frozen settings are slightly cheaper (452 and 433\,s against 480\,s), since the embedding table needs no gradient.
+
+\paragraph{Generated text.} The same prompts and decoding as in Part~I (all samples: \tok{results/generations\_part2.json}). The random setting's samples tend not to stay on the prompt's topic; both frozen settings stay on topic more consistently (``the species is found in'' continues with genus, holotype and habitats under skip-gram, and with birds under GloVe). Local fluency is reasonable in all three and better in the frozen settings. On repetition, the frozen settings repeat more within a sample: their share of distinct bigrams is 0.92 (skip-gram) and 0.91 (GloVe) against 0.94 for the random setting, and the skip-gram sample for the species prompt uses ``species'' four times and ``genus'' three times. The GloVe setting produces the most \tok{<unk>} tokens (5.2 per sample, against 2.0 for skip-gram and 3.0 for random).
+
+\subsection{Interpretation}
+
+\paragraph{Trainability (settings 1 and 2).} Learning the embeddings separately and then freezing them helps here. One possible reason is stability: with a frozen table, the LSTM's inputs do not change during training, while in the random setting the embedding table and the rest of the model have to be learned at the same time from the same data, so the LSTM is fitted to inputs that keep moving. The frozen settings also overfit later and less, which is consistent with this: they reach their best epoch three epochs later, at a lower validation loss. \todo{Optional: whether having 5.8M fewer parameters to fit from the same 2M tokens also plays a part.}
+
+\paragraph{Extra data (settings 2 and 3).} The skip-gram vectors were trained on the very corpus the language model is trained and tested on, so they match its vocabulary, tokenization and topics, while GloVe was trained on different text, tokenized differently. On this corpus that match outweighs the roughly 3,000 times more data GloVe saw. It also shows in coverage: GloVe has no vectors for \tok{<eos>} or the \tok{@-@}, \tok{@.@} and \tok{@,@} markers, some of the most frequent tokens in WikiText-2, so in the GloVe setting those tokens keep random, frozen rows that the model can never adapt. On a general corpus closer to GloVe's own training text, we would expect GloVe to do better than vectors trained on WikiText-2 alone; that was not tested here.
+
+\paragraph{A confound: scale.} The three tables also start at different scales: the random table has standard deviation 1.0 (PyTorch's default), the skip-gram vectors 0.19 and GloVe 0.43. The initial scale matters in itself, so part of the gap between the random setting and the frozen ones may come from scale rather than from what the vectors contain. This experiment cannot separate the two; a random, trainable table started at the pretrained vectors' scale would.
 
 % ---------------------------------------------------------------------------
 \section{Part III: Downstream representations}
