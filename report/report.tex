@@ -216,7 +216,47 @@ GloVe, frozen & 18.4M & 96.2\% & 178.42 & 167.55 & 13 (10) & 433 \\
 % ---------------------------------------------------------------------------
 \section{Part III: Downstream representations}
 % ---------------------------------------------------------------------------
-\todo{After Part II.}
+
+\subsection{Setup}
+
+\paragraph{Task and data.} Topic classification on AG News (four balanced classes: World, Sports, Business, Sci/Tech; chance is 25\%). A class-balanced, seeded sample of 10,000 items from the official training split is used for training and a disjoint 2,000 for validation; the official test split (7,600) is used once. Each item (headline and summary) is lowercased, tokenized following WikiText-2's conventions and mapped to the WikiText-2 vocabulary, so the language models see it exactly as they would see their own data; 7.0\% of test tokens become \tok{<unk>}. Items are cut to 64 tokens, the chunk length the models were trained on; 3.8\% of test items are longer.
+
+\paragraph{Representations.} Two frozen language models from Part~I, the LSTM and the Transformer, each read every item from a fresh state, and their final-layer hidden states (512 and 200 numbers per token) are collapsed into one vector per item in two ways: \emph{mean pooling}, the average of the hidden states over the item's real tokens, excluding padding; and \emph{last-token pooling}, the hidden state at the item's last real token, which has read the whole item. Both models read left to right, so the padding after an item cannot affect these states.
+
+\paragraph{Classifier.} The same for all four representations: multinomial logistic regression on standardized features (standardization fitted on the training items only), with the regularization strength chosen by validation macro-F1 from $\{0.01, 0.1, 1, 10\}$. Only the classifier is trained; the language models stay frozen.
+
+\subsection{Results}
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lrlrr}
+\toprule
+Language model & LM test PPL & Pooling & Test accuracy & Test macro-F1 \\
+\midrule
+LSTM & 210.84 & mean & 62.89\% & 0.628 \\
+LSTM & 210.84 & last token & 47.62\% & 0.475 \\
+Transformer & 149.52 & mean & \textbf{78.45\%} & \textbf{0.784} \\
+Transformer & 149.52 & last token & 72.83\% & 0.727 \\
+\bottomrule
+\end{tabular}
+\caption{Part III results (\tok{results/probe\_agnews.json}).}
+\label{tab:part3}
+\end{table}
+
+\paragraph{Which representation works better.} The Transformer's representations beat the LSTM's with either pooling, and mean pooling beats last-token pooling for both models, by 15.3 points for the LSTM and 5.6 for the Transformer. \todo{Your reason why mean pooling carries more topic information than the final state. One fact to use: the last real token of 84\% of test items is a full stop, so last-token pooling takes the state the model holds just after a full stop.}
+
+The gap between the two poolings fits the same difference as in Part~I. In the LSTM, information from early in an item has to be carried through every later step to reach the final state, so the last state holds the beginning of the item only weakly. In the Transformer, the last position attends to every earlier token directly, without recurrence, so its final state loses less. The same holds for the states that mean pooling averages: each LSTM state summarizes all the history before it through one fixed-size state, while each Transformer state draws on the earlier tokens directly.
+
+\paragraph{Errors.} Every probe finds Sports easiest and Business and Sci/Tech hardest (best probe: F1 0.89 for Sports, 0.80 World, 0.73 Sci/Tech, 0.71 Business), and its largest confusions are between Business and Sci/Tech (331 Business items predicted as Sci/Tech, 320 the other way). The ten most confident errors of each probe fall into three groups:
+\begin{itemize}
+\item \emph{Doubtful labels.} Sports stories labelled World are the most common confident error in every probe, for example ``Football: Azerbaijan 0-1 England. Michael Owen heads England's winner in the World Cup qualifier'' (labelled World, predicted Sports). These are arguably problems of the dataset, not of the model.
+\item \emph{Genuinely ambiguous topics.} ``How Serious Is Pfizer's Condition? The stock is feeling some pain these days'' (Business, predicted Sci/Tech) and ``Treo 650 on Monday? The blogs are buzzing that the Treo 650 will be released'' (Sci/Tech, predicted Business) could each reasonably belong to either class.
+\item \emph{Model errors.} ``Calif.\ Lawmaker Wants to Privatize State Pensions'' (Business) is predicted as Sports with full confidence by the Transformer with last-token pooling.
+\end{itemize}
+
+One possible contributor to the Business and Sci/Tech confusion is unknown words, since both classes are full of company and product names that WikiText-2 does not contain. The data give this only weak support: Sci/Tech has the highest \tok{<unk>} rate (8.2\% of tokens, against 6.2\% for World), but Business (7.0\%) is no higher than Sports (7.0\%); in the best probe, Business items predicted as Sci/Tech contain slightly more \tok{<unk>} than correctly classified ones (7.8\% against 7.0\%), and Sci/Tech items predicted as Business hardly more (8.4\% against 8.3\%); in the two LSTM probes, Sci/Tech items predicted as Business contain \emph{fewer} \tok{<unk>} than correctly classified ones. \todo{What else could explain the Business/Sci-Tech confusion? Think about what news falls between the two.}
+
+\paragraph{Language-model ranking against downstream ranking.} The rankings agree: the Transformer, with the lower perplexity, also gives the better features, under both poolings. With only two language models this is a single comparison, not a trend; the frozen skip-gram LSTM from Part~II, which has a lower perplexity than either (147.01), was not probed. Better next-token prediction does not in general guarantee better features for another task, and this experiment cannot show how strongly the two are linked.
 
 % ---------------------------------------------------------------------------
 \section{Limitations and lessons}

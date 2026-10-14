@@ -109,6 +109,12 @@ def error_examples(result: dict, split: Split, n: int) -> list[dict]:
     ]
 
 
+def unk_shares(split: Split, unk_id: int) -> np.ndarray:
+    """The share of each item's real tokens that are <unk>."""
+    real = torch.arange(split.ids.size(1))[None, :] < split.lengths[:, None]
+    return (((split.ids == unk_id) & real).sum(1).float() / split.lengths.float()).numpy()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
@@ -120,6 +126,7 @@ def main() -> None:
     vocab, _ = load_corpus(config)
     splits = load_agnews(config, vocab)
     labels = {name: split.labels.numpy() for name, split in splits.items()}
+    test_unk = unk_shares(splits["test"], vocab.unk_id)
 
     results = {
         "run_name": config["run_name"],
@@ -133,6 +140,9 @@ def main() -> None:
                 "truncated": split.n_truncated / len(split.texts),
             }
             for name, split in splits.items()
+        },
+        "unk_share_by_class": {
+            name: float(test_unk[labels["test"] == c].mean()) for c, name in enumerate(CLASS_NAMES)
         },
         "probes": [],
     }
@@ -148,8 +158,19 @@ def main() -> None:
         for pooling in config["representations"]["pooling"]:
             result = fit_probe({name: features[name][pooling] for name in splits}, labels, config["classifier"])
             errors = error_examples(result, splits["test"], config["n_error_examples"])
-            n_wrong = int((result.pop("predicted") != labels["test"]).sum())
+            predicted = result.pop("predicted")
+            n_wrong = int((predicted != labels["test"]).sum())
             result.pop("confidence")
+            # Are the items confused between Business and Sci/Tech richer in
+            # <unk> than the ones of the same class classified correctly?
+            business, sci_tech = CLASS_NAMES.index("Business"), CLASS_NAMES.index("Sci/Tech")
+            result["unk_share_business_scitech"] = {
+                f"{CLASS_NAMES[true]}_{'correct' if pred == true else 'as_' + CLASS_NAMES[pred]}": float(
+                    test_unk[(labels["test"] == true) & (predicted == pred)].mean()
+                )
+                for true, other in ((business, sci_tech), (sci_tech, business))
+                for pred in (true, other)
+            }
             results["probes"].append({
                 "model": lm_name,
                 "pooling": pooling,

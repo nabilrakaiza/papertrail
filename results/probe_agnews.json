@@ -42,6 +42,12 @@
       "truncated": 0.037894736842105266
     }
   },
+  "unk_share_by_class": {
+    "World": 0.0620434544980526,
+    "Sports": 0.06970256567001343,
+    "Business": 0.07039522379636765,
+    "Sci/Tech": 0.08149460703134537
+  },
   "probes": [
     {
       "model": "lstm",
@@ -107,6 +113,12 @@
           "val_macro_f1": 0.6268795929111364
         }
       ],
+      "unk_share_business_scitech": {
+        "Business_correct": 0.0698646530508995,
+        "Business_as_Sci/Tech": 0.08153106272220612,
+        "Sci/Tech_correct": 0.08858054131269455,
+        "Sci/Tech_as_Business": 0.0795871764421463
+      },
       "test_errors": 2820,
       "error_examples": [
         {
@@ -245,6 +257,12 @@
           "val_macro_f1": 0.46595809476443334
         }
       ],
+      "unk_share_business_scitech": {
+        "Business_correct": 0.07008559256792068,
+        "Business_as_Sci/Tech": 0.08417421579360962,
+        "Sci/Tech_correct": 0.09217409789562225,
+        "Sci/Tech_as_Business": 0.08010301738977432
+      },
       "test_errors": 3981,
       "error_examples": [
         {
@@ -383,6 +401,12 @@
           "val_macro_f1": 0.7899987126838199
         }
       ],
+      "unk_share_business_scitech": {
+        "Business_correct": 0.07003523409366608,
+        "Business_as_Sci/Tech": 0.07817763090133667,
+        "Sci/Tech_correct": 0.08333105593919754,
+        "Sci/Tech_as_Business": 0.08435051143169403
+      },
       "test_errors": 1638,
       "error_examples": [
         {
@@ -521,6 +545,12 @@
           "val_macro_f1": 0.7322743176484652
         }
       ],
+      "unk_share_business_scitech": {
+        "Business_correct": 0.06972119957208633,
+        "Business_as_Sci/Tech": 0.07571128010749817,
+        "Sci/Tech_correct": 0.08310858905315399,
+        "Sci/Tech_as_Business": 0.08551228046417236
+      },
       "test_errors": 2065,
       "error_examples": [
         {
