@@ -64,6 +64,8 @@ Transformer & decoder-only, 4 blocks, width 200, 4 heads, feed-forward 800, & 13
 
 All neural models are trained the same way: AdamW (weight decay 0.01), batch size 32, chunks of 64 tokens, gradient-norm clipping at 1.0, at most 20 epochs with early stopping after 3 epochs without improvement in validation loss, keeping the checkpoint with the lowest validation loss. Batches are read in corpus order so that the RNN and LSTM can carry their hidden state across batches during training (truncated backpropagation through time over 64 tokens). The RNN and LSTM use a constant learning rate of $10^{-3}$; the Transformer uses $5\times10^{-4}$ with 1,000 warm-up steps and cosine decay.
 
+Every model predicts each target from preceding tokens only: the recurrent models read left to right, the Transformer uses a causal attention mask, and the trigram conditions on the two previous tokens. For each neural model this was checked directly: changing the token at one position leaves every prediction at earlier positions unchanged.
+
 \todo{Fairness: the models are not matched in size. Say what you think this means for the comparison. Facts you can use: the Transformer has the fewest parameters (13.5M against 21.5M and 24.2M) and the best perplexity.}
 
 \subsection{Results}
@@ -122,7 +124,7 @@ Across the five samples per model, the share of distinct bigrams is 0.94 for the
 
 \paragraph{Observed.} \todo{Your summary of what the results show, kept to observations. From your notes: the trigram beats the RNN on perplexity and is far cheaper to fit and to score text; the Transformer is best on quality and on every cost measure among the neural models.}
 
-\paragraph{Possible explanations.} \todo{Your explanations, kept separate from the observations above. From your notes: vanishing gradients in the RNN. Points to settle first: (1) exploding gradients are already controlled in every run by gradient clipping at 1.0, so vanishing is the one to test; (2) the loss-by-position measurement below tests it directly; (3) more training would not have helped the RNN: its validation loss was flat for its last 7 epochs, and it already has more parameters than the Transformer.}
+\paragraph{Possible explanations.} \todo{Your explanations, kept separate from the observations above. The brief names four candidates to weigh: architecture, parameter count, context length and training budget. From your notes: vanishing gradients in the RNN. Points to settle first: (1) exploding gradients are already controlled in every run by gradient clipping at 1.0, so vanishing is the one to test; (2) the loss-by-position measurement below tests it directly; (3) more training would not have helped the RNN: its validation loss was flat for its last 7 epochs, and it already has more parameters than the Transformer.}
 
 \paragraph{Loss by amount of history.} Figure~\ref{fig:byposition} splits the test loss by position within the 64-token chunk, that is, by how many tokens of history each prediction had (\tok{results/analysis\_part1.json}). With one token of history the RNN and LSTM are far worse than both the Transformer and the trigram (perplexity 1,637 and 1,624, against 366 and 227). With more history all three neural models keep improving: from positions 8--15 to positions 32--63 their loss falls by 0.108 (RNN), 0.181 (LSTM) and 0.132 nats (Transformer), while the trigram's stays flat. Averaged over positions 32--63, the RNN is level with the trigram (perplexity 224 against 225), the LSTM is at 184 and the Transformer at 138. \todo{What this means for your vanishing-gradient explanation, and why the RNN and LSTM might start each chunk so badly. Hint: compare how their hidden state starts during training with how it starts during evaluation.}
 
@@ -132,6 +134,26 @@ Across the five samples per model, the share of distinct bigrams is 0.94 for the
 \caption{Test loss by the number of tokens of history, for every position of a 64-token chunk (3,815 chunks). The trigram always has two tokens of history; its line is flat.}
 \label{fig:byposition}
 \end{figure}
+
+\paragraph{Other ways of giving the models history.} Table~\ref{tab:context} scores the same test targets under two further protocols (\tok{results/analysis\_part1.json}). \emph{Strided}: windows of 64 tokens start every 32 tokens, each from a fresh state, and only their second half is scored, so every scored prediction has between 33 and 64 tokens of history and no model's slow start is counted. \emph{Carried}: the RNN and LSTM keep their state across the whole test stream, as in training, so their history is unlimited; the Transformer cannot do this, because it only ever attends to a fixed window.
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+Model & Standard (64-token chunks) & Strided (33--64 tokens of history) & Carried (unlimited history) \\
+\midrule
+KN trigram & 226.00 & 226.00 & 226.00 \\
+RNN & 245.14 & 224.56 & 221.35 \\
+LSTM & 210.84 & 184.32 & 165.82 \\
+Transformer & 149.52 & 138.79 & -- \\
+\bottomrule
+\end{tabular}
+\caption{Test perplexity of the same checkpoints under three evaluation protocols. The trigram always conditions on two tokens, so its score does not change.}
+\label{tab:context}
+\end{table}
+
+With the slow start removed (strided), the RNN moves from behind the trigram to marginally ahead of it (224.56 against 226.00), and the ranking of the other models is unchanged. Given unlimited history (carried), the LSTM improves by a further 18.5 perplexity points, the RNN by 3.2. \todo{What these two comparisons say about your vanishing-gradient explanation. Note that the standard protocol, which the README fixes in advance, is still the headline comparison; these are extra evidence.}
 
 % ---------------------------------------------------------------------------
 \section{Part II: Embedding variants}

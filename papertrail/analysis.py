@@ -8,6 +8,8 @@ Writes results/analysis_part1.json with three things:
                    the trigram's perplexity on its own training text
     by_position    test loss at each position of a 64-token chunk, per model:
                    how much each model gains from having more context
+    context        test perplexity of the neural models under two other ways of
+                   giving them history (see `strided` and `carried`)
     generations    repetition and special-token counts in the Part I samples
 """
 import json
@@ -72,6 +74,54 @@ def neural_by_position(model: torch.nn.Module, inputs: torch.Tensor, targets: to
     return (sums / counts).tolist()
 
 
+def strided(model: torch.nn.Module, stream: torch.Tensor, pad_id: int, window: int, device: torch.device) -> float:
+    """Test perplexity when every scored target has between window/2 + 1 and window tokens of history.
+
+    Windows of `window` tokens start every window/2 tokens, each from a fresh
+    state, and only their second half is scored (all of the first window, so
+    every target is scored exactly once). No scored prediction is made from
+    fewer than window/2 + 1 tokens, for any model, so the slow start of a
+    recurrent model at the beginning of a window is never counted.
+    """
+    stride = window // 2
+    starts = list(range(0, len(stream) - 1, stride))
+    total, n_targets = 0.0, 0
+    with torch.no_grad():
+        for batch_start in range(0, len(starts), 32):
+            batch = starts[batch_start:batch_start + 32]
+            inputs = torch.full((len(batch), window), pad_id, dtype=torch.long)
+            targets = torch.full((len(batch), window), pad_id, dtype=torch.long)
+            for row, start in enumerate(batch):
+                piece = stream[start:start + window + 1]
+                inputs[row, : len(piece) - 1] = piece[:-1]
+                targets[row, : len(piece) - 1] = piece[1:]
+                if start > 0:
+                    targets[row, :stride] = pad_id          # first half: history only, not scored
+            logits, _ = model(inputs.to(device))
+            targets = targets.to(device)
+            total += F.cross_entropy(logits.flatten(0, 1), targets.flatten(), ignore_index=pad_id, reduction="sum").item()
+            n_targets += (targets != pad_id).sum().item()
+    assert n_targets == len(stream) - 1, "every target must be scored exactly once"
+    return math.exp(total / n_targets)
+
+
+def carried(model: torch.nn.Module, inputs: torch.Tensor, targets: torch.Tensor, pad_id: int) -> float:
+    """Test perplexity of a recurrent model that keeps its state across the whole test stream.
+
+    The chunks are read in order as one long sequence, as in training, so the
+    model only starts from a zero state once, and its history is unlimited.
+    Not comparable to the 64-token protocol: it is an upper bound on what the
+    recurrent model gains from longer history.
+    """
+    total, n_targets, state = 0.0, 0, None
+    with torch.no_grad():
+        for i in range(len(inputs)):
+            logits, state = model(inputs[i:i + 1], state)
+            total += F.cross_entropy(logits[0], targets[i], ignore_index=pad_id, reduction="sum").item()
+            n_targets += (targets[i] != pad_id).sum().item()
+    return math.exp(total / n_targets)
+
+
 def repetition(tokens: list[str]) -> dict:
     """Simple repetition measures for one generated continuation."""
     bigrams = list(zip(tokens, tokens[1:]))
@@ -103,9 +153,13 @@ def main() -> None:
     out["by_position"] = {"ngram_kn3": ngram_by_position(trigram, test, context_length)}
     device = pick_device(config["train"]["device"])
     inputs, targets = (t.to(device) for t in chunk(streams["test"], context_length, vocab.pad_id))
+    out["context"] = {"window": context_length, "strided": {}, "carried": {}}
     for name in NEURAL:
         model, _ = load_checkpoint(REPO_ROOT / "runs" / name / "best.pt", device)
         out["by_position"][name] = neural_by_position(model, inputs, targets, vocab.pad_id)
+        out["context"]["strided"][name] = strided(model, streams["test"], vocab.pad_id, context_length, device)
+        if name != "transformer":
+            out["context"]["carried"][name] = carried(model, inputs, targets, vocab.pad_id)
         del model
 
     generations = json.load(open(REPO_ROOT / "results" / "generations.json"))["generations"]
