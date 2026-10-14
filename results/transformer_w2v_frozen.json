@@ -1,0 +1,56 @@
+{
+  "run_name": "transformer_w2v_frozen",
+  "model": {
+    "emb_dim": 200,
+    "emb_init": "word2vec",
+    "freeze_emb": true,
+    "tie_weights": false,
+    "type": "transformer",
+    "d_model": 200,
+    "n_heads": 4,
+    "n_layers": 4,
+    "d_ff": 800,
+    "dropout": 0.2,
+    "pos_encoding": "sinusoidal",
+    "max_len": 64,
+    "emb_path": "embeddings/w2v_sg200_wikitext2.kv",
+    "oov_init": "normal_matched_std",
+    "emb_rescale_std": 0.02
+  },
+  "vocab_size": 28913,
+  "parameters": {
+    "total": 13524513,
+    "trainable": 7741913,
+    "embedding": 5782600
+  },
+  "embedding": {
+    "init": "word2vec",
+    "frozen": true,
+    "path": "embeddings/w2v_sg200_wikitext2.kv",
+    "oov_init": "normal_matched_std",
+    "vocabulary": 28913,
+    "covered": 28912,
+    "coverage_of_vocabulary": 0.9999654134818248,
+    "coverage_of_train_tokens": 1.0,
+    "vector_std": 0.18504855036735535,
+    "rescaled_std": 0.020000001415610313,
+    "missing_examples": [
+      "<pad>"
+    ],
+    "unchanged_after_training": true
+  },
+  "device": "mps",
+  "torch": "2.9.0",
+  "epochs_run": 20,
+  "best_epoch": 20,
+  "train_seconds_to_best": 7329.340619043098,
+  "train_seconds_total": 7329.340619043098,
+  "loss": {
+    "validation": 4.9320484054983105,
+    "test": 4.8764689624184765
+  },
+  "perplexity": {
+    "validation": 138.6632602100236,
+    "test": 131.16669070022286
+  }
+}
