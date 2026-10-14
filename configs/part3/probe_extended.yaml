@@ -1,0 +1,11 @@
+inherit: configs/part3/probe.yaml
+run_name: probe_agnews_extended   # optional extension: the same probe on the frozen-embedding models
+
+representations:
+  models:
+    - runs/lstm/best.pt
+    - runs/transformer/best.pt
+    - runs/lstm_w2v_frozen/best.pt
+    - runs/lstm_glove_frozen/best.pt
+    - runs/transformer_w2v_frozen/best.pt
+    - runs/transformer_glove_frozen/best.pt
