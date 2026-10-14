@@ -261,11 +261,27 @@ One possible contributor to the Business and Sci/Tech confusion is unknown words
 % ---------------------------------------------------------------------------
 \section{Limitations and lessons}
 % ---------------------------------------------------------------------------
-\todo{Single seed; models not matched in size and not tuned; one laptop, timed in one power state; RNN/LSTM history capped at 64 tokens at evaluation; the PyTorch LSTM dropout bug and how it was caught.}
+\paragraph{Limitations.} The main limitation is compute. Everything was trained on one laptop (Apple M1, 8\,GB, no CUDA GPU), so the models had to be kept small, none of them could be tuned, and each run had a limited budget; how the comparison changes for larger models is untested. The rest follow from it:
+\begin{itemize}
+\item \emph{One seed.} Every number comes from a single run, so there are no error bars, and small differences, such as the RNN against the trigram under the strided protocol (224.56 against 226.00), may be within run-to-run variation.
+\item \emph{Evaluation protocol.} Resetting the recurrent models' state at every 64-token chunk caps their history and penalizes their start of each chunk (Part~I); the headline numbers understate what the RNN and LSTM can do with more history.
+\item \emph{Confounds.} The Part~II settings differ in the scale of the embedding table as well as its content, and skip-gram against GloVe changes the method as well as the data. Part~III compares only two language models, uses a tokenizer that approximates WikiText-2's, and loses 7\% of AG News tokens to \tok{<unk>}.
+\item \emph{Timing.} On this laptop the same training step takes about 1.7 times as long plugged in (Low Power Mode) as on battery; all reported costs were therefore measured in one power state.
+\end{itemize}
+
+\paragraph{Failure cases.} The RNN scores worse than the trigram under the standard protocol, and the reason is its start of each chunk rather than long-range forgetting. The first LSTM run was invalid: PyTorch's built-in two-layer LSTM silently applies a fixed dropout mask on the \tok{mps} device, and the run was caught only because a reloaded checkpoint did not reproduce its own recorded loss. In Part~III many of the most confident errors are doubtful or ambiguous labels rather than model errors.
+
+\paragraph{Lessons learned.} \todo{Check these: the first two are from your notes, the last two are suggestions.}
+\begin{itemize}
+\item How Kneser-Ney smoothing works, and why continuation counts are a better lower-order estimate than raw frequency.
+\item A neural model is not automatically better than a well-smoothed n-gram: the RNN lost to the trigram here.
+\item How a model is evaluated can decide the ranking: the RNN's loss to the trigram came from the evaluation protocol's cold start, which only a per-position breakdown revealed.
+\item Results need checking, not just running: reloading every checkpoint in a fresh process is what exposed the LSTM dropout bug.
+\end{itemize}
 
 % ---------------------------------------------------------------------------
 \section*{Tool use}
 % ---------------------------------------------------------------------------
-\todo{Your statement, consistent with the README's ``Tool use'' section.}
+An AI coding assistant, Claude Code (Anthropic) running Claude Opus 5.5, was used substantially. \emph{Code:} it wrote the configuration loading, data pipeline, RNN/LSTM model, training loop, benchmark, embedding code, AG News preparation, probe, analysis and figure scripts; the author wrote the Transformer (ported from an earlier implementation of their own) and, with review, parts of the Kneser-Ney trigram and the evaluation, generation and pooling code. The repository README lists the split file by file. \emph{Report:} it produced the tables and figures and the measured facts, and turned the author's notes into draft prose; the questions asked, the interpretations and the explanations are the author's, given in those notes and revised by the author. \todo{Check this matches how you want to describe the help, and keep it consistent with the README.}
 
 \end{document}

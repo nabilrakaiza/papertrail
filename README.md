@@ -305,7 +305,7 @@ An AI coding assistant (Claude Code, Anthropic) was used substantially in this p
   - `pooling.py`: the author wrote both functions as loops, correctly; the assistant then replaced them with equivalent loop-free versions at the author's request.
 - **Written by the author:** the Transformer (`transformer.py`), ported from the author's earlier implementation. The assistant reformatted it and adapted it to this project's interface (untied output layer, loss moved out of the model).
 
-The analysis and interpretation in the report are the author's own.
+- **Report:** the assistant produced the tables, figures and measured facts, and turned the author's notes into draft prose. The interpretations and explanations are the author's, given in those notes and revised by the author.
 
 ## License
 
