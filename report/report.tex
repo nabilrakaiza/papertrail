@@ -1,0 +1,156 @@
+% DSA4213 Assignment 1 report. Draft.
+%
+% Red [TODO] notes mark what is still to be written or decided. Numbers come
+% from the files in results/; the file is named next to each table and figure.
+% Figures are read from ../results/figures/ (upload that folder too if you
+% compile on Overleaf).
+
+\documentclass[10pt]{article}
+\usepackage[a4paper, margin=2cm]{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\graphicspath{{../results/figures/}}
+
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\tok}[1]{\texttt{#1}}
+
+\title{From Kneser-Ney to Causal Self-Attention:\\Language Models, Embeddings and Representations on WikiText-2}
+\author{\todo{name, student number}}
+\date{}
+
+\begin{document}
+\maketitle
+
+% ---------------------------------------------------------------------------
+\section{Setup}
+% ---------------------------------------------------------------------------
+
+\todo{One or two sentences on the comparison question the report is organized around (the brief asks for one).}
+
+\paragraph{Data.} WikiText-2 (\tok{wikitext-2-v1}, the pre-tokenized release), with its official splits. Text is lowercased, empty lines are dropped and every remaining line ends with \tok{<eos>}. The vocabulary is built from the training split only (28,913 types including \tok{<pad>}, \tok{<unk>} and \tok{<eos>}); validation and test words outside it become \tok{<unk>}. Each split is one token stream: 2.08M training, 216K validation and 244K test tokens. The neural models read it in contiguous chunks of 64 tokens.
+
+\paragraph{Evaluation.} Every model is scored on the same 244,101 test targets (every test token except the first) by mean next-token cross-entropy; perplexity is its exponential. Padding, which appears only in the final chunk, is excluded. At evaluation the RNN and LSTM start every chunk from a zero state, so all neural models see at most 64 tokens of history; the trigram sees two. All results are from one seed (42) on an Apple M1 laptop (8 GB) using PyTorch 2.9 on the \tok{mps} device.
+
+% ---------------------------------------------------------------------------
+\section{Part I: Model families}
+% ---------------------------------------------------------------------------
+
+\subsection{Models}
+
+\paragraph{Interpolated Kneser-Ney trigram.} An interpolated model mixes trigram, bigram and unigram estimates, and the lower orders matter most exactly when the trigram has no evidence. With ordinary interpolation the lower order is based on raw counts: a word's unigram probability is how often it occurs. That is misleading for a word that is frequent only because it follows one particular word: ``francisco'' is common, but almost always after ``san'', so it is a poor guess in a new context. Kneser-Ney instead bases the lower orders on continuation counts, the number of distinct words a word has been seen after, which better measures how likely it is to appear in a context it has not been seen in. We use absolute discounting with one fixed discount $D = 0.75$ at every order.
+
+The order is three. \todo{Your reason for not going higher, in your words. The numbers below are evidence for it: on this corpus most trigrams already occur only once, and 4-grams are sparser still, so a 4-gram would mostly back off to the trigram.} On the training text, 85\% of the 1.38M distinct trigrams occur exactly once; for 4-grams, 1.81M of the 2.08M occurrences are distinct, and 94\% of those occur once (\tok{results/analysis\_part1.json}).
+
+\paragraph{Neural models.} All three use randomly initialized, trainable 200-dimensional input embeddings and a separate (untied) output layer over the full vocabulary. Their sizes were chosen to keep training feasible on a laptop and were not tuned; the embedding size of 200 matches the public GloVe vectors used in Part~II.
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lll}
+\toprule
+Model & Architecture & Parameters \\
+\midrule
+RNN & 2-layer Elman RNN (tanh), hidden size 512, dropout 0.3 & 21.5M \\
+LSTM & 2-layer LSTM, hidden size 512, dropout 0.3 & 24.2M \\
+Transformer & decoder-only, 4 blocks, width 200, 4 heads, feed-forward 800, & 13.5M \\
+ & dropout 0.2, post-LN, sinusoidal positions & \\
+\bottomrule
+\end{tabular}
+\caption{Neural architectures. In every model the output layer (hidden width $\times$ 28,913) holds most of the parameters: 14.8M of the RNN's and LSTM's, 5.8M of the Transformer's.}
+\label{tab:arch}
+\end{table}
+
+All neural models are trained the same way: AdamW (weight decay 0.01), batch size 32, chunks of 64 tokens, gradient-norm clipping at 1.0, at most 20 epochs with early stopping after 3 epochs without improvement in validation loss, keeping the checkpoint with the lowest validation loss. Batches are read in corpus order so that the RNN and LSTM can carry their hidden state across batches during training (truncated backpropagation through time over 64 tokens). The RNN and LSTM use a constant learning rate of $10^{-3}$; the Transformer uses $5\times10^{-4}$ with 1,000 warm-up steps and cosine decay.
+
+\todo{Fairness: the models are not matched in size. Say what you think this means for the comparison. Facts you can use: the Transformer has the fewest parameters (13.5M against 21.5M and 24.2M) and the best perplexity.}
+
+\subsection{Results}
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lrrrcrrr}
+\toprule
+Model & Params & Val PPL & Test PPL & Epochs (best) & s / epoch & Time to best & Inference (tok/s) \\
+\midrule
+KN trigram & 1.38M trigrams & 240.66 & 226.00 & -- & -- & 10 s & 453,082\,/\,9$^{*}$ \\
+RNN & 21.5M & 268.92 & 245.14 & 16 (13) & 475 & 103 min & 21,084 \\
+LSTM & 24.2M & 226.13 & 210.84 & 10 (7) & 480 & 56 min & 19,405 \\
+Transformer & 13.5M & 160.41 & \textbf{149.52} & 9 (6) & 360 & 36 min & \textbf{32,718} \\
+\bottomrule
+\end{tabular}
+\caption{Part I results (\tok{results/*.json}, \tok{results/benchmark.json}). Time per epoch is the median training step times 1,013 steps, measured for all models under the same conditions; time to best is best epoch $\times$ time per epoch, and for the trigram the time to count n-grams on the CPU. Inference: test targets per second for a full forward pass at batch size 32, after 10 warm-up batches, mean of 3 repeats. $^{*}$The trigram can score a known target with a few lookups (453,082 tok/s) but producing a full distribution, as the neural models always do, runs at 9 positions per second in our pure-Python implementation.}
+\label{tab:part1}
+\end{table}
+
+\paragraph{Prediction quality.} The Transformer has the lowest test perplexity (149.52), followed by the LSTM (210.84), the trigram (226.00) and the RNN (245.14).
+
+\paragraph{Cost.} The Transformer is also the cheapest neural model: the smallest, the fastest per epoch and to its best checkpoint, and the fastest at inference. The RNN and LSTM cost about the same per epoch; the LSTM reaches its best checkpoint in about half the time because it needs fewer epochs. The trigram is fitted in seconds.
+
+\paragraph{Learning behaviour.} Figure~\ref{fig:part1curves} shows training and validation loss per epoch. In all three models training loss keeps falling while validation loss levels off, and the gap between them grows. For the LSTM and the Transformer, validation loss then rises (LSTM: 5.421 at epoch 7 to 5.509 at epoch 10; Transformer: 5.078 at epoch 6 to 5.101 at epoch 9), which is overfitting in the strict sense; early stopping keeps the checkpoint before the rise. The RNN's validation loss is nearly flat from epoch 9 (between 5.594 and 5.619). Training loss is measured with dropout on, so the true gap is larger than plotted. \todo{Your reading of the curves: which model overfits most, and why might that be?}
+
+The trigram has no training curve, but it can also fit its training data far better than unseen data: its perplexity on its own training text is 16.9, against 226.00 on test. Smoothing (the discount) plays the role that early stopping and dropout play for the neural models.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{part1_loss_curves.pdf}
+\caption{Training and validation loss per epoch. The dot marks the kept checkpoint; the grey line is the trigram's validation loss.}
+\label{fig:part1curves}
+\end{figure}
+
+\paragraph{Generated text.} All models continue the same five prompts with temperature 0.8, top-$k$ 40 and 50 new tokens; the random generator is reset to the same seed for every continuation, and one sampling function serves all four models. Two examples, cut to their first 30 tokens (all samples: \tok{results/generations.json}):
+
+\begin{small}
+\begin{description}
+\item[Prompt] \emph{the album was released in}
+\item[KN trigram] the last game and the british empire casualties , " " and " the song . the ship 's cargo ship . the two \tok{<unk>} , \tok{<unk>} \tok{<unk>} , and \tok{<unk>} ( a ) \dots
+\item[RNN] the 2000s season at the start of 14 august 1935 . a month of 3 : 10 , 2013 , also criticized a single film award for the game . the film \dots
+\item[LSTM] the summer for three weeks of the uk and awards . in the episode in 2005 , the game was selected as the \tok{<unk>} \tok{<unk>} of the game 's best \dots
+\item[Transformer] the united states . \tok{<eos>} in the album , in the united states on august 25 , 2015 , the album was released as a single album . the album received \dots
+\item[Prompt] \emph{during the war , the}
+\item[KN trigram] \tok{<unk>} , with a \tok{<unk>} " . however , due to an end . he has been a long time , the first half of the country , and the city , \dots
+\item[RNN] 766th was a " \tok{<unk>} of the length , where no can be found for each of the first time . \tok{<eos>} the portuguese facade of the premaxillary \dots
+\item[LSTM] \tok{<unk>} \tok{<unk>} were able to see the series of privacy that has been found at one of the same year . \tok{<eos>} the episode was directed by \dots
+\item[Transformer] 766th was in order to create a heavy emplacement at about 20 km / h ( 11 mph ) . the 766th regiment 's regiment was made up to 40 km \dots
+\end{description}
+\end{small}
+
+Across the five samples per model, the share of distinct bigrams is 0.94 for the trigram, 0.93 for the RNN, 0.94 for the LSTM and 0.90 for the Transformer, and the trigram produces the most \tok{<unk>} tokens (6.2 per 50-token sample, against 3.0 to 4.0); five samples are too few for small differences to mean much. Two facts worth noting: the trigram produced the identical continuation for ``the album was released in'' and ``the species is found in'' (both end in ``in'', both sampled ``the'' next, and from then on its two-token context and the random draws coincide), and the Transformer repeats ``766th'' three times within one sample. \todo{Your comparison of the samples: repetition, local fluency, and consistency with the prompt and within the sample.}
+
+\subsection{Tradeoffs}
+
+\paragraph{Observed.} \todo{Your summary of what the results show, kept to observations. From your notes: the trigram beats the RNN on perplexity and is far cheaper to fit and to score text; the Transformer is best on quality and on every cost measure among the neural models.}
+
+\paragraph{Possible explanations.} \todo{Your explanations, kept separate from the observations above. From your notes: vanishing gradients in the RNN. Points to settle first: (1) exploding gradients are already controlled in every run by gradient clipping at 1.0, so vanishing is the one to test; (2) the loss-by-position measurement below tests it directly; (3) more training would not have helped the RNN: its validation loss was flat for its last 7 epochs, and it already has more parameters than the Transformer.}
+
+\paragraph{Loss by amount of history.} Figure~\ref{fig:byposition} splits the test loss by position within the 64-token chunk, that is, by how many tokens of history each prediction had (\tok{results/analysis\_part1.json}). With one token of history the RNN and LSTM are far worse than both the Transformer and the trigram (perplexity 1,637 and 1,624, against 366 and 227). With more history all three neural models keep improving: from positions 8--15 to positions 32--63 their loss falls by 0.108 (RNN), 0.181 (LSTM) and 0.132 nats (Transformer), while the trigram's stays flat. Averaged over positions 32--63, the RNN is level with the trigram (perplexity 224 against 225), the LSTM is at 184 and the Transformer at 138. \todo{What this means for your vanishing-gradient explanation, and why the RNN and LSTM might start each chunk so badly. Hint: compare how their hidden state starts during training with how it starts during evaluation.}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{part1_loss_by_position.pdf}
+\caption{Test loss by the number of tokens of history, for every position of a 64-token chunk (3,815 chunks). The trigram always has two tokens of history; its line is flat.}
+\label{fig:byposition}
+\end{figure}
+
+% ---------------------------------------------------------------------------
+\section{Part II: Embedding variants}
+% ---------------------------------------------------------------------------
+\todo{Next.}
+
+% ---------------------------------------------------------------------------
+\section{Part III: Downstream representations}
+% ---------------------------------------------------------------------------
+\todo{After Part II.}
+
+% ---------------------------------------------------------------------------
+\section{Limitations and lessons}
+% ---------------------------------------------------------------------------
+\todo{Single seed; models not matched in size and not tuned; one laptop, timed in one power state; RNN/LSTM history capped at 64 tokens at evaluation; the PyTorch LSTM dropout bug and how it was caught.}
+
+% ---------------------------------------------------------------------------
+\section*{Tool use}
+% ---------------------------------------------------------------------------
+\todo{Your statement, consistent with the README's ``Tool use'' section.}
+
+\end{document}

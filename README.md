@@ -52,6 +52,7 @@ papertrail/
 │   ├── benchmark.py    # inference throughput and model size
 │   ├── generate.py     # sampled continuations with matched decoding
 │   ├── report_figs.py  # figures for the report
+│   ├── analysis.py     # extra Part I measurements: n-gram sparsity, loss by position, sample repetition
 │   └── utils.py        # seeding, device choice, timing helpers
 ├── scripts/            # one-off helpers (GloVe download)
 ├── results/            # metrics JSON/CSV and figures (tracked)
@@ -170,7 +171,8 @@ python -m papertrail.train     --config configs/part1/lstm.yaml
 python -m papertrail.train     --config configs/part1/transformer.yaml
 python -m papertrail.benchmark --configs configs/part1/*.yaml     # inference throughput + model size
 python -m papertrail.generate  --configs configs/part1/*.yaml     # matched-decoding samples
-python -m papertrail.report_figs                                  # loss curves
+python -m papertrail.analysis                                     # n-gram sparsity, loss by position, sample repetition
+python -m papertrail.report_figs                                  # figures (run after analysis)
 
 # Part II
 bash scripts/download_glove.sh

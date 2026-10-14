@@ -99,6 +99,45 @@ def loss_curves(panels: list[tuple[str, str]], path, reference: tuple[str, float
     print(f"wrote {path.with_suffix('.png').relative_to(REPO_ROOT)} and .pdf")
 
 
+def loss_by_position(path) -> None:
+    """Test loss against the amount of history a model had, from results/analysis_part1.json.
+
+    Within a 64-token chunk, the target at position t is predicted from t + 1
+    tokens (the RNN and LSTM start every chunk from a zero state). The x axis
+    is logarithmic because almost all the change happens in the first tokens.
+    """
+    by_position = json.load(open(RESULTS_DIR / "analysis_part1.json"))["by_position"]
+    history = list(range(1, 65))
+    # Colour follows the model; the trigram is the grey reference, as in the loss curves.
+    # No labels at the line ends: the RNN and trigram lines end on top of each
+    # other, so the legend carries identity.
+    series = [("RNN", "rnn", "#2a78d6"), ("LSTM", "lstm", "#eb6834"), ("Transformer", "transformer", "#1baf7a"),
+              ("KN trigram", "ngram_kn3", AXIS)]
+
+    fig, ax = plt.subplots(figsize=(6.5, 2.6))
+    for label, key, colour in series:
+        ax.plot(history, by_position[key], color=colour, linewidth=2 if key != "ngram_kn3" else 1.5, label=label,
+                zorder=3 if key != "ngram_kn3" else 2)
+
+    ax.set_xscale("log", base=2)
+    ax.set_xticks([1, 2, 4, 8, 16, 32, 64], labels=["1", "2", "4", "8", "16", "32", "64"])
+    ax.set_xlim(0.9, 64 * 1.02)
+    ax.set_xlabel("tokens of history (position in the chunk + 1)", color=INK_SECONDARY)
+    ax.set_ylabel("test loss (nats per token)", color=INK_SECONDARY)
+    ax.grid(axis="y", color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+    ax.tick_params(length=0)
+    ax.legend(loc="upper right", frameon=False, labelcolor=INK_SECONDARY, ncols=4, handlelength=2,
+              bbox_to_anchor=(1.0, 1.14))
+
+    fig.tight_layout()
+    for suffix in (".png", ".pdf"):
+        fig.savefig(path.with_suffix(suffix), dpi=250, facecolor="white")
+    plt.close(fig)
+    print(f"wrote {path.with_suffix('.png').relative_to(REPO_ROOT)} and .pdf")
+
+
 def main() -> None:
     ngram = json.load(open(RESULTS_DIR / "ngram_kn3.json"))
     loss_curves(
@@ -111,6 +150,7 @@ def main() -> None:
         [("Random, trainable", "lstm"), ("Skip-gram, frozen", "lstm_w2v_frozen"), ("GloVe, frozen", "lstm_glove_frozen")],
         FIGURES_DIR / "part2_loss_curves",
     )
+    loss_by_position(FIGURES_DIR / "part1_loss_by_position")
 
 
 if __name__ == "__main__":
