@@ -248,7 +248,7 @@ All reported numbers come from one machine. Each `results/<run_name>.json` from 
 | GPU | Apple M1 integrated GPU, through PyTorch's `mps` backend. No CUDA. |
 | CPU | Apple M1. Used for the n-gram model. |
 | Software | Python 3.13.6, PyTorch 2.9.0 |
-| Power state | Plugged in, with macOS Low Power Mode on. This laptop is set to use Low Power Mode whenever it is on mains power, in which this laptop runs more slowly: on battery, the same training steps measured 1.2 to 1.5 times faster (`results/step_times_battery.json`, against the plugged-in times in the Results table). |
+| Power state | Plugged in, with macOS Low Power Mode on. This laptop is set to use Low Power Mode whenever it is on mains power, in which this laptop runs more slowly: the same training steps take 1.2 to 1.5 times as long as on battery (`results/step_times.json` against `results/step_times_battery.json`). |
 
 ## Results
 
@@ -257,17 +257,17 @@ Part I, from `results/`. Perplexities are measured with the checkpoint that had 
 | Model | Params | Validation PPL | Test PPL | Epochs run (best) | Time per epoch | Time to best | Inference (tok/s) |
 |---|---|---|---|---|---|---|---|
 | KN trigram | 1.38M trigrams | 240.66 | 226.00 | n/a | n/a | 10.2 s | 453,082 scoring targets; 9 full distribution |
-| RNN | 21.5M | 268.92 | 245.14 | 16 (13) | 475 s | 103 min | 21,084 |
-| LSTM | 24.2M | 226.13 | 210.84 | 10 (7) | 480 s | 56 min | 19,405 |
-| Transformer | 13.5M | 160.41 | 149.52 | 9 (6) | 360 s | 36 min | 32,718 |
+| RNN | 21.5M | 268.92 | 245.14 | 16 (13) | 466 s | 101 min | 21,084 |
+| LSTM | 24.2M | 226.13 | 210.84 | 10 (7) | 501 s | 58 min | 19,405 |
+| Transformer | 13.5M | 160.41 | 149.52 | 9 (6) | 370 s | 37 min | 32,718 |
 
 How the cost columns were measured:
 
 - **All of them are for one power state:** plugged in with Low Power Mode on, the state the RNN, Transformer and Part II runs trained in.
-- **Time per epoch** is the median time of a training step times the 1,013 steps in an epoch, the mean of two rounds that differed by at most 11%, measured for every model on an otherwise idle machine. Validation passes are not included. The current numbers were measured plugged in with an earlier version of `papertrail/step_time.py` (one fresh process per model); re-measuring them plugged in with the current script, into `results/step_times.json`, is pending. The same script's battery measurement is in `results/step_times_battery.json`.
+- **Time per epoch** is the median time of a training step times the 1,013 steps in an epoch, measured with `papertrail/step_time.py` for every model back to back on an otherwise idle machine, plugged in (`results/step_times.json`). It is the mean of two rounds, which differed by at most 2%. Validation passes are not included. The same script's battery measurement is in `results/step_times_battery.json`.
 - **Time to best** is the best epoch times the time per epoch. For the KN trigram it is the time to count the n-grams, on the CPU.
 - **Inference** is from `results/benchmark.json`, on an idle machine. Repeats differed by at most 6%. The RNN and LSTM are close enough that their order is not reliable.
-- **Why not the wall-clock times in the results files?** They are not comparable: the runs happened at different times, and this laptop's speed varies with its power state and load. For example, the LSTM's final run recorded about 288 s per epoch, faster than either like-for-like measurement (480 s plugged in, 331 s on battery), and the RNN's recorded time includes two slow early epochs (846 s and 623 s) from the laptop being in use.
+- **Why not the wall-clock times in the results files?** They are not comparable: the runs happened at different times, and this laptop's speed varies with its power state and load. For example, the LSTM's final run recorded about 288 s per epoch, faster than either like-for-like measurement (501 s plugged in, 331 s on battery), and the RNN's recorded time includes two slow early epochs (846 s and 623 s) from the laptop being in use.
 
 **A PyTorch issue that affected the first LSTM run.** The LSTM was first trained with PyTorch's built-in two-layer module (`nn.LSTM(num_layers=2, dropout=0.3)`). In PyTorch 2.9 on Apple's `mps` device the dropout between that module's layers is broken: whichever mode the first call in the process uses, training or evaluation, is silently used for every later call, and in training mode the mask is the same on every call. That run was discarded. `papertrail/rnn.py` now stacks single-layer modules with an ordinary `nn.Dropout` between them, which computes the same model, and the LSTM was re-trained. The RNN (`nn.RNN`) and the Transformer were checked and are not affected. As a guard, every checkpoint is reloaded in a fresh process and must reproduce the loss recorded during training; all five do.
 
@@ -275,9 +275,9 @@ Part II, from `results/`: one architecture (the LSTM above), three input-embeddi
 
 | Input embeddings | Trainable params | Vocabulary covered | Validation PPL | Test PPL | Epochs run (best) | Time per epoch |
 |---|---|---|---|---|---|---|
-| Random, trained with the model | 24.2M | n/a | 226.13 | 210.84 | 10 (7) | 480 s |
-| Own skip-gram, frozen | 18.4M | 28,912 of 28,913 | 155.29 | 147.01 | 13 (10) | 452 s |
-| GloVe 6B 200d, frozen | 18.4M | 27,810 of 28,913 | 178.42 | 167.55 | 13 (10) | 433 s |
+| Random, trained with the model | 24.2M | n/a | 226.13 | 210.84 | 10 (7) | 501 s |
+| Own skip-gram, frozen | 18.4M | 28,912 of 28,913 | 155.29 | 147.01 | 13 (10) | 448 s |
+| GloVe 6B 200d, frozen | 18.4M | 27,810 of 28,913 | 178.42 | 167.55 | 13 (10) | 463 s |
 
 - The frozen tables were checked after training and are bit-for-bit the tables the runs started with.
 - Training the skip-gram vectors took a further 233 s on the CPU.

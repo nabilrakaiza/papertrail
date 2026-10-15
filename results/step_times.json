@@ -1,0 +1,44 @@
+{
+  "power_state": "AC Power, Low Power Mode on",
+  "device": "mps",
+  "torch": "2.9.0",
+  "steps_per_epoch": 1013,
+  "rounds": 2,
+  "runs": {
+    "rnn": {
+      "seconds_per_step_by_round": [
+        0.4555805000127293,
+        0.46518662496237084
+      ],
+      "seconds_per_epoch": 466.36854879988823
+    },
+    "lstm": {
+      "seconds_per_step_by_round": [
+        0.4888747500372119,
+        0.500761917035561
+      ],
+      "seconds_per_epoch": 501.2509718723595
+    },
+    "transformer": {
+      "seconds_per_step_by_round": [
+        0.3653590829926543,
+        0.36592941702110693
+      ],
+      "seconds_per_epoch": 370.39762525697006
+    },
+    "lstm_w2v_frozen": {
+      "seconds_per_step_by_round": [
+        0.440081958018709,
+        0.44394991599256173
+      ],
+      "seconds_per_epoch": 447.7621441867086
+    },
+    "lstm_glove_frozen": {
+      "seconds_per_step_by_round": [
+        0.4570133340312168,
+        0.4575836669537239
+      ],
+      "seconds_per_epoch": 463.24338099887245
+    }
+  }
+}
