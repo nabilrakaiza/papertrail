@@ -290,12 +290,12 @@ Three of the four chosen values of C sit at an end of the grid (0.01 to 10). The
 - Skip-gram: Mikolov, Chen, Corrado, Dean. *Efficient Estimation of Word Representations in Vector Space.* 2013. Implemented with gensim (Řehůřek and Sojka, 2010).
 - Kneser-Ney smoothing: Kneser and Ney, 1995; Chen and Goodman, 1999.
 - RNN LM: Mikolov et al., 2010. LSTM: Hochreiter and Schmidhuber, 1997. Transformer: Vaswani et al., 2017.
-- The Transformer in `papertrail/transformer.py` is ported from the author's earlier implementation, github.com/nabilrakaiza/transformer.
+- The Transformer in `papertrail/transformer.py` is ported from the author's earlier implementation, github.com/nabilrakaiza/transformer, which was adapted from The Annotated Transformer (Rush, Harvard NLP, 2018).
 - Course notebooks adapted where noted in the source files.
 
 ## Tool use
 
-An AI coding assistant (Claude Code, Anthropic) was used substantially in this project. Commits it produced carry a `Co-Authored-By: Claude` trailer.
+An AI coding assistant (Claude Opus 5.5 through Claude Code, Anthropic) was used substantially in this project: to write much of the code, to draft the report from the author's notes, and to verify the results. Commits it produced carry a `Co-Authored-By: Claude` trailer.
 
 - **Written by the assistant:** config loading (`config.py`), the data pipeline (`data.py`), the RNN and LSTM model (`rnn.py`), the training loop (`train.py`, `models.py`, `utils.py`), the benchmark (`benchmark.py`), the figures (`report_figs.py`), the Part II embedding code (`word2vec.py`, `embeddings.py`), the AG News preparation (`agnews.py`), the probe (`probe.py`), and the repository scaffolding (configs, checklist, this README).
 - **Written jointly:**
