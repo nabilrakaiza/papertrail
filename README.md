@@ -53,6 +53,7 @@ papertrail/
 │   ├── pooling.py      # mean and last-token pooling of hidden states
 │   ├── probe.py        # frozen-LM features + logistic regression on AG News
 │   ├── benchmark.py    # inference throughput and model size
+│   ├── step_time.py    # training time per epoch, all models under the same conditions
 │   ├── generate.py     # sampled continuations with matched decoding
 │   ├── report_figs.py  # figures for the report
 │   ├── analysis.py     # extra Part I measurements: n-gram sparsity, loss by position, sample repetition
@@ -173,6 +174,8 @@ python -m papertrail.train     --config configs/part1/rnn.yaml
 python -m papertrail.train     --config configs/part1/lstm.yaml
 python -m papertrail.train     --config configs/part1/transformer.yaml
 python -m papertrail.benchmark --configs configs/part1/*.yaml     # inference throughput + model size
+python -m papertrail.step_time --configs configs/part1/rnn.yaml configs/part1/lstm.yaml configs/part1/transformer.yaml \
+    configs/part2/lstm_w2v_frozen.yaml configs/part2/lstm_glove_frozen.yaml                 # training time per epoch
 python -m papertrail.generate  --configs configs/part1/*.yaml     # matched-decoding samples
 python -m papertrail.analysis                                     # n-gram sparsity, loss by position, sample repetition
 python -m papertrail.report_figs                                  # figures (run after analysis)
@@ -202,7 +205,7 @@ python -m papertrail.agnews    configs/part3/probe.yaml
 Outputs:
 
 - Best checkpoint (lowest validation loss): `runs/<run_name>/best.pt`
-- Train and validation loss and cumulative training time per epoch: `runs/<run_name>/log.json`
+- Train and validation loss, cumulative training time and (for runs made after it was added) the learning rate, per epoch: `runs/<run_name>/log.json`
 - Final metrics, measured with the best checkpoint: `results/<run_name>.json`
 - Generated samples: `results/generations.json` (Part I) and `results/generations_part2.json` (Part II)
 - Figures: `results/figures/`
@@ -213,7 +216,7 @@ Outputs:
 
 **Context.** Every model predicts each target from preceding tokens only. For a fair context comparison, RNN/LSTM hidden states are **reset at every chunk** during evaluation, so all neural models see at most `context_length` tokens of history. The n-gram sees 2 tokens of history.
 
-**Training procedure.** The same for every neural model: AdamW (weight decay 0.01), batch size 32, gradient-norm clipping at 1.0, at most 20 epochs, early stopping after 3 epochs without improvement in validation loss, and the checkpoint with the lowest validation loss is the one evaluated. Batches are read in corpus order without shuffling, so that the RNN and LSTM can carry their hidden state from one batch to the next (truncated backpropagation through time over 64 tokens). The RNN and LSTM use a constant learning rate of 1e-3; the Transformer uses 5e-4 with 1,000 warmup steps and cosine decay.
+**Training procedure.** The same for every neural model: AdamW (weight decay 0.01), batch size 32, gradient-norm clipping at 1.0, at most 20 epochs, early stopping after 3 epochs without improvement in validation loss, and the checkpoint with the lowest validation loss is the one evaluated. Batches are read in corpus order without shuffling, so that the RNN and LSTM can carry their hidden state from one batch to the next (truncated backpropagation through time over 64 tokens). The RNN and LSTM use a constant learning rate of 1e-3; the Transformer uses 5e-4 with 1,000 warmup steps and cosine decay. The cosine decay is spread over the full 20-epoch budget, so a run that stops early never reaches the low-learning-rate end of the schedule: the Part I Transformer stopped at epoch 9, with its best checkpoint (epoch 6) still at 84% of the peak rate, while the two Transformer runs with frozen embeddings trained all 20 epochs. The report discusses what this means for comparing them.
 
 **Training cost.** Wall-clock training time to the best validation checkpoint and in total, number of epochs, and trainable / total parameter counts (embedding parameters reported separately). The time covers the training passes only, not the validation pass after each epoch, and the device is synchronized before each clock reading.
 
@@ -229,8 +232,9 @@ Outputs:
 
 - Global seed: `42` (Python, NumPy, PyTorch, CUDA), set in every entry point that uses randomness. The n-gram model uses none.
 - `torch.backends.cudnn.deterministic = True`, `torch.backends.cudnn.benchmark = False`.
-- Skip-gram: `gensim` with `workers=1` and `seed=42` (gensim is only reproducible single-threaded). Two runs gave bit-identical vectors, without setting `PYTHONHASHSEED`.
+- Skip-gram: `gensim` with `workers=1` and `seed=42` (gensim is only reproducible single-threaded). Two runs gave bit-identical vectors, without setting `PYTHONHASHSEED`. Training prints a few `Exception ignored in: 'gensim.models.word2vec_inner.our_dot_float'` warnings; their cause was not found, but the vectors are reproducible and their nearest neighbours are sensible.
 - AG News subsampling and OOV embedding initialization use the same seed.
+- The RNN's reported numbers come from a run made before `papertrail/rnn.py` was restructured, when it used PyTorch's built-in two-layer `nn.RNN` (which is not affected by the LSTM dropout bug described under Results). Its checkpoint was converted to the new layer names and reproduces the recorded loss exactly. Re-training the RNN with the current code gives an equivalent model but not identical numbers, because dropout then draws its random numbers differently.
 - Two CPU runs of the training loop with the same seed give identical losses. This has not been checked on a GPU, where some operations are not deterministic.
 - All main results are from a single seed because of the compute budget. This is stated as a limitation in the report.
 
@@ -244,7 +248,7 @@ All reported numbers come from one machine. Each `results/<run_name>.json` from 
 | GPU | Apple M1 integrated GPU, through PyTorch's `mps` backend. No CUDA. |
 | CPU | Apple M1. Used for the n-gram model. |
 | Software | Python 3.13.6, PyTorch 2.9.0 |
-| Power state | Plugged in, with macOS Low Power Mode on. This laptop is set to use Low Power Mode whenever it is on mains power, in which a training step takes about 1.7 times as long as on battery. |
+| Power state | Plugged in, with macOS Low Power Mode on. This laptop is set to use Low Power Mode whenever it is on mains power, in which this laptop runs more slowly: on battery, the same training steps measured 1.2 to 1.5 times faster (`results/step_times_battery.json`, against the plugged-in times in the Results table). |
 
 ## Results
 
@@ -260,10 +264,10 @@ Part I, from `results/`. Perplexities are measured with the checkpoint that had 
 How the cost columns were measured:
 
 - **All of them are for one power state:** plugged in with Low Power Mode on, the state the RNN, Transformer and Part II runs trained in.
-- **Time per epoch** is the median time of a training step, measured for every model in a fresh process on an otherwise idle machine, times the 1,013 steps in an epoch. It is the mean of two rounds, which differed by at most 6%. Validation passes are not included.
+- **Time per epoch** is the median time of a training step times the 1,013 steps in an epoch, the mean of two rounds that differed by at most 11%, measured for every model on an otherwise idle machine. Validation passes are not included. The current numbers were measured plugged in with an earlier version of `papertrail/step_time.py` (one fresh process per model); re-measuring them plugged in with the current script, into `results/step_times.json`, is pending. The same script's battery measurement is in `results/step_times_battery.json`.
 - **Time to best** is the best epoch times the time per epoch. For the KN trigram it is the time to count the n-grams, on the CPU.
 - **Inference** is from `results/benchmark.json`, on an idle machine. Repeats differed by at most 6%. The RNN and LSTM are close enough that their order is not reliable.
-- **Why not the wall-clock times in the results files?** They are not comparable. The RNN and Transformer trained plugged in (recorded: 106.2 and 35.3 minutes to best, in line with the table). The LSTM's final run very likely started on battery, at full speed: its first eight epochs took about 288 s each, against 480 s when measured like-for-like, and its recorded 33.3 minutes to best reflects that. The RNN's recorded time also includes two slow early epochs (846 s and 623 s) from the laptop being in use.
+- **Why not the wall-clock times in the results files?** They are not comparable: the runs happened at different times, and this laptop's speed varies with its power state and load. For example, the LSTM's final run recorded about 288 s per epoch, faster than either like-for-like measurement (480 s plugged in, 331 s on battery), and the RNN's recorded time includes two slow early epochs (846 s and 623 s) from the laptop being in use.
 
 **A PyTorch issue that affected the first LSTM run.** The LSTM was first trained with PyTorch's built-in two-layer module (`nn.LSTM(num_layers=2, dropout=0.3)`). In PyTorch 2.9 on Apple's `mps` device the dropout between that module's layers is broken: whichever mode the first call in the process uses, training or evaluation, is silently used for every later call, and in training mode the mask is the same on every call. That run was discarded. `papertrail/rnn.py` now stacks single-layer modules with an ordinary `nn.Dropout` between them, which computes the same model, and the LSTM was re-trained. The RNN (`nn.RNN`) and the Transformer were checked and are not affected. As a guard, every checkpoint is reloaded in a fresh process and must reproduce the loss recorded during training; all five do.
 
@@ -288,7 +292,7 @@ Optional extension: the same frozen embeddings on the Transformer. The vectors a
 | Own skip-gram, frozen | 7.7M | 138.66 | 131.17 | 20 (20) |
 | GloVe, frozen | 7.7M | 135.10 | 127.45 | 20 (20) |
 
-Both extension runs used the full 20-epoch budget and were still improving.
+Both extension runs used the full 20-epoch budget and were still improving. Their gain over the Part I Transformer comes mostly from training longer, into the low-learning-rate end of the schedule (see Training procedure): at epoch 6, the Part I Transformer's best epoch, their validation perplexities are 156.78 (skip-gram) and 160.36 (GloVe), against its 160.41. In the last two or three epochs of both runs training loss rose slightly while validation loss kept falling, as the learning rate approached zero; this was not explained.
 
 Part III: topic classification on AG News (4 balanced classes, so chance is 25%) from frozen language-model representations. `results/probe_agnews.json` has the two Part I models; `results/probe_agnews_extended.json` has all six and agrees with it on those two.
 
@@ -312,7 +316,6 @@ The chosen regularization C is often at an end of the grid (0.01 to 10): 10 of t
 - Kneser-Ney smoothing: Kneser and Ney, 1995; Chen and Goodman, 1999.
 - RNN LM: Mikolov et al., 2010. LSTM: Hochreiter and Schmidhuber, 1997. Transformer: Vaswani et al., 2017.
 - The Transformer in `papertrail/transformer.py` is ported from the author's earlier implementation, github.com/nabilrakaiza/transformer, which was adapted from The Annotated Transformer (Rush, Harvard NLP, 2018).
-- Course notebooks adapted where noted in the source files.
 
 ## Tool use
 

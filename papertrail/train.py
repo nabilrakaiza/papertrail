@@ -138,7 +138,10 @@ def train(config: dict) -> dict:
         val_loss = evaluate(model, *chunks["validation"], train_config["batch_size"], vocab.pad_id)
 
         # train_seconds counts the training passes only, not validation.
-        log.append({"epoch": epoch, "train_loss": train_loss, "val_loss": val_loss, "train_seconds": train_seconds})
+        # The learning rate at the end of the epoch is logged too: with a decaying
+        # schedule, late epochs train at a small fraction of the peak rate.
+        log.append({"epoch": epoch, "train_loss": train_loss, "val_loss": val_loss, "train_seconds": train_seconds,
+                    "lr": schedule.get_last_lr()[0]})
         with open(run_dir / "log.json", "w") as f:
             json.dump(log, f, indent=2)
         print(f"epoch {epoch:2d}  train {train_loss:.4f}  val {val_loss:.4f}  {train_seconds:7.1f}s")
