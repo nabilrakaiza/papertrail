@@ -46,5 +46,5 @@ Every required item from the brief, mapped to where it lives. Tick as you go. De
 - [x] README: data access, preprocessing, dependencies, commands, configs, seeds
 - [x] External code, datasets, pretrained models, and tool assistance cited
 - [x] No data, keys, or checkpoints committed
-- [ ] Fresh clone reproduces main numbers
+- [x] Fresh clone reproduces main numbers (checked for the corpus, trigram, AG News subsets and skip-gram vectors; the neural models are covered by fixed seeds and the checkpoint-reload checks)
 - [ ] Repo accessible to the instructor (or zip prepared)
