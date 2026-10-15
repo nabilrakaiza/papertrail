@@ -213,6 +213,25 @@ GloVe, frozen & 18.4M & 96.2\% & 178.42 & 167.55 & 13 (10) & 433 \\
 
 \paragraph{Extra data (settings 2 and 3).} The skip-gram vectors were trained on the very corpus the language model is trained and tested on, so they match its vocabulary, tokenization and topics, while GloVe was trained on different text, tokenized differently. On this corpus that match appears to outweigh the roughly 3,000 times more data GloVe saw, although the two settings also differ in method. It also shows in coverage: GloVe has no vectors for \tok{<eos>} or the \tok{@-@}, \tok{@.@} and \tok{@,@} markers, some of the most frequent tokens in WikiText-2, so in the GloVe setting those tokens keep random, frozen rows that the model can never adapt. On a general corpus closer to GloVe's own training text, we would expect GloVe to do better than vectors trained on WikiText-2 alone; that was not tested here.
 
+\paragraph{Extension: the same embeddings on the Transformer.} As an optional extension, the Part~I Transformer was also trained with the skip-gram and GloVe tables frozen in (\tok{results/transformer\_*\_frozen.json}). Its embeddings are multiplied by $\sqrt{200} \approx 14$ before the position signal is added, and it is built for a table at its own initial scale (standard deviation 0.02), so both tables were rescaled by a single constant to that scale, which keeps every vector's direction and the ratios of the distances between them. Everything else matches the Part~I Transformer, which leaves 7.7M trainable parameters instead of 13.5M.
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Transformer input embeddings & Trainable params & Val PPL & Test PPL & Epochs (best) \\
+\midrule
+Random, trainable (Part~I) & 13.5M & 160.41 & 149.52 & 9 (6) \\
+Own skip-gram, frozen & 7.7M & 138.66 & 131.17 & 20 (20) \\
+GloVe, frozen & 7.7M & 135.10 & \textbf{127.45} & 20 (20) \\
+\bottomrule
+\end{tabular}
+\caption{The Part II embedding settings applied to the Transformer.}
+\label{tab:part2transformer}
+\end{table}
+
+Frozen pretrained embeddings help the Transformer as well, by 18 to 22 perplexity points, but here GloVe beats skip-gram, the reverse of the LSTM result. Both runs used the full 20-epoch budget and were still improving at the end, so their scores are limited by the budget rather than converged; in their last two or three epochs training loss rose slightly while validation loss kept falling, which is not explained here. Both checkpoints reproduce their recorded losses when reloaded, and both tables are bit-for-bit unchanged after training. \todo{Your reading: why might GloVe beat skip-gram for the Transformer but not for the LSTM? Keep it short and mark it as a hypothesis.}
+
 \paragraph{A confound: scale.} The three tables also start at different scales: the random table has standard deviation 1.0 (PyTorch's default), the skip-gram vectors 0.19 and GloVe 0.43. The initial scale matters in itself, so part of the gap between the random setting and the frozen ones may come from scale rather than from what the vectors contain. This experiment cannot separate the two; a random, trainable table started at the pretrained vectors' scale would.
 
 % ---------------------------------------------------------------------------
@@ -223,33 +242,36 @@ GloVe, frozen & 18.4M & 96.2\% & 178.42 & 167.55 & 13 (10) & 433 \\
 
 \paragraph{Task and data.} Topic classification on AG News~\cite{zhang2015} (four balanced classes: World, Sports, Business, Sci/Tech; chance is 25\%). A class-balanced, seeded sample of 10,000 items from the official training split is used for training and a disjoint 2,000 for validation; the official test split (7,600) is used once. Each item (headline and summary) is lowercased, tokenized following WikiText-2's conventions and mapped to the WikiText-2 vocabulary, so the language models see it in the same format as their own training data; 7.0\% of test tokens become \tok{<unk>}. Items are cut to 64 tokens, the chunk length the models were trained on; 3.8\% of test items are longer.
 
-\paragraph{Representations.} Two frozen language models from Part~I, the LSTM and the Transformer, each read every item from a fresh state, and their final-layer hidden states (512 and 200 numbers per token) are collapsed into one vector per item in two ways: \emph{mean pooling}, the average of the hidden states over the item's real tokens, excluding padding; and \emph{last-token pooling}, the hidden state at the item's last real token, which has read the whole item. Both models read left to right, so the padding after an item cannot affect these states.
+\paragraph{Representations.} Six frozen language models are probed: the Part~I LSTM and Transformer, and the four frozen-embedding variants from Part~II (LSTM and Transformer, each with skip-gram and with GloVe). Each reads every item from a fresh state, and its final-layer hidden states (512 numbers per token for the LSTMs, 200 for the Transformers) are collapsed into one vector per item in two ways: \emph{mean pooling}, the average of the hidden states over the item's real tokens, excluding padding; and \emph{last-token pooling}, the hidden state at the item's last real token, which has read the whole item. Both models read left to right, so the padding after an item cannot affect these states.
 
-\paragraph{Classifier.} The same for all four representations: multinomial logistic regression (scikit-learn~\cite{pedregosa2011}) on standardized features (standardization fitted on the training items only), with the regularization strength chosen by validation macro-F1 from $\{0.01, 0.1, 1, 10\}$. Only the classifier is trained; the language models stay frozen.
+\paragraph{Classifier.} The same for all twelve representations: multinomial logistic regression (scikit-learn~\cite{pedregosa2011}) on standardized features (standardization fitted on the training items only), with the regularization strength chosen by validation macro-F1 from $\{0.01, 0.1, 1, 10\}$. Only the classifier is trained; the language models stay frozen.
 
 \subsection{Results}
 
 \begin{table}[h]
 \centering\small
-\begin{tabular}{lrlrr}
+\begin{tabular}{lrcccc}
 \toprule
-Language model & LM test PPL & Pooling & Test accuracy & Test macro-F1 \\
+ & & \multicolumn{2}{c}{Mean pooling} & \multicolumn{2}{c}{Last-token pooling} \\
+Language model & LM test PPL & Accuracy & Macro-F1 & Accuracy & Macro-F1 \\
 \midrule
-LSTM & 210.84 & mean & 62.89\% & 0.628 \\
-LSTM & 210.84 & last token & 47.62\% & 0.475 \\
-Transformer & 149.52 & mean & \textbf{78.45\%} & \textbf{0.784} \\
-Transformer & 149.52 & last token & 72.83\% & 0.727 \\
+LSTM (Part~I) & 210.84 & 62.89\% & 0.628 & 47.62\% & 0.475 \\
+Transformer (Part~I) & 149.52 & 78.45\% & 0.784 & 72.83\% & 0.727 \\
+LSTM, skip-gram frozen & 147.01 & 79.39\% & 0.794 & 74.54\% & 0.745 \\
+LSTM, GloVe frozen & 167.55 & 83.18\% & 0.832 & 77.80\% & 0.778 \\
+Transformer, skip-gram frozen & 131.17 & 81.92\% & 0.819 & 80.13\% & 0.801 \\
+Transformer, GloVe frozen & 127.45 & \textbf{85.64\%} & \textbf{0.856} & \textbf{84.24\%} & \textbf{0.842} \\
 \bottomrule
 \end{tabular}
-\caption{Part III results (\tok{results/probe\_agnews.json}).}
+\caption{Part III results on the AG News test set (\tok{results/probe\_agnews.json} for the two Part~I models, \tok{results/probe\_agnews\_extended.json} for all six; the two files agree on the Part~I models).}
 \label{tab:part3}
 \end{table}
 
-\paragraph{Which representation works better.} The Transformer's representations beat the LSTM's with either pooling, and mean pooling beats last-token pooling for both models, by 15.3 points for the LSTM and 5.6 for the Transformer. The last real token of 84\% of test items is a full stop, so last-token pooling takes the state the model holds just after a sentence ends, when its job is mostly to predict what follows the end of a sentence rather than to describe what the item was about. The information that identifies the topic is spread over the item and is not guaranteed to be in that final state; averaging over every token keeps it.
+\paragraph{Which representation works better.} Mean pooling beats last-token pooling for every one of the six models; the gap is largest for the Part~I LSTM (15.3 points) and smallest for the Transformers with frozen embeddings (1.4 to 1.8 points). With the input embeddings held fixed, the Transformer's representations beat the LSTM's every time, under both poolings. Frozen pretrained embeddings also improve classification sharply: the LSTM rises from 62.89\% to 79.39\% with skip-gram and 83.18\% with GloVe, and the best representation overall is the Transformer with frozen GloVe (85.64\%). The last real token of 84\% of test items is a full stop, so last-token pooling takes the state the model holds just after a sentence ends, when its job is mostly to predict what follows the end of a sentence rather than to describe what the item was about. The information that identifies the topic is spread over the item and is not guaranteed to be in that final state; averaging over every token keeps it.
 
 The gap between the two poolings fits the same architectural difference as in Part~I. In the LSTM, information from early in an item has to be carried through every later step to reach the final state, so the last state holds the beginning of the item only weakly. In the Transformer, the last position attends to every earlier token directly, without recurrence, so its final state loses less. The same holds for the states that mean pooling averages: each LSTM state summarizes all the history before it through one fixed-size state, while each Transformer state draws on the earlier tokens directly.
 
-\paragraph{Errors.} Every probe finds Sports easiest and Business and Sci/Tech hardest (best probe: F1 0.89 for Sports, 0.80 World, 0.73 Sci/Tech, 0.71 Business), and its largest confusions are between Business and Sci/Tech (331 Business items predicted as Sci/Tech, 320 the other way). The ten most confident errors of each probe include three kinds:
+\paragraph{Errors.} The error analysis covers the four probes of the two Part~I models. Every one of them finds Sports easiest and Business and Sci/Tech hardest (best probe: F1 0.89 for Sports, 0.80 World, 0.73 Sci/Tech, 0.71 Business), and its largest confusions are between Business and Sci/Tech (331 Business items predicted as Sci/Tech, 320 the other way). The ten most confident errors of each probe include three kinds:
 \begin{itemize}
 \item \emph{Doubtful labels.} Sports stories labelled World are the most common confident error in every probe, for example ``Football: Azerbaijan 0-1 England. Michael Owen heads England's winner in the World Cup qualifier'' (labelled World, predicted Sports). These are arguably problems of the dataset, not of the model.
 \item \emph{Genuinely ambiguous topics.} ``How Serious Is Pfizer's Condition? The stock is feeling some pain these days'' (Business, predicted Sci/Tech) and ``Treo 650 on Monday? The blogs are buzzing that the Treo 650 will be released'' (Sci/Tech, predicted Business) could each reasonably belong to either class.
@@ -258,7 +280,7 @@ The gap between the two poolings fits the same architectural difference as in Pa
 
 One possible contributor to the Business and Sci/Tech confusion is unknown words, since both classes are full of company and product names that WikiText-2 does not contain. The data give this only weak support: Sci/Tech has the highest \tok{<unk>} rate (8.2\% of tokens, against 6.2\% for World), but Business (7.0\%) is no higher than Sports (7.0\%); in the best probe, Business items predicted as Sci/Tech contain slightly more \tok{<unk>} than correctly classified ones (7.8\% against 7.0\%), and Sci/Tech items predicted as Business hardly more (8.4\% against 8.3\%); in the two LSTM probes, Sci/Tech items predicted as Business contain \emph{fewer} \tok{<unk>} than correctly classified ones. A more likely explanation is ambiguity in the task itself. Much news sits between the two classes: a technology company's earnings, for example, is as much Business as Sci/Tech, and which one it gets depends on the labelling. Each item carries a single hard label, not a distribution over classes, so the dataset has no way to say ``somewhere in between'', and items of this kind will be confused whichever representation is used.
 
-\paragraph{Language-model ranking against downstream ranking.} The rankings agree: the Transformer, with the lower perplexity, also gives the better features, under both poolings. With only two language models this is a single comparison, not a trend; the frozen skip-gram LSTM from Part~II, which has a lower perplexity than either (147.01), was not probed. Better next-token prediction does not in general guarantee better features for another task, and this experiment cannot show how strongly the two are linked.
+\paragraph{Language-model ranking against downstream ranking.} Between the two Part~I models the rankings agree: the Transformer has the lower perplexity and gives the better features. Across all six models they mostly agree, but not fully: the rank correlation (Spearman) between test perplexity and test accuracy is 0.66 with mean pooling and 0.83 with last-token pooling. The clearest exception is the LSTM with frozen GloVe, fifth of six in perplexity (167.55) but second in classification (83.18\%); GloVe gives the better features for both architectures, including the LSTM, where it gives the worse perplexity. Better next-token prediction therefore goes with better features in general here, but which pretrained vectors a model starts from can matter more for the downstream task than its perplexity suggests. Six models is still a small sample for a correlation. \todo{Your reading of the GloVe exception, marked as a hypothesis. One fact you could use: GloVe's training text includes the Gigaword newswire corpus, and AG News is news.}
 
 % ---------------------------------------------------------------------------
 \section{Limitations and lessons}
@@ -267,7 +289,8 @@ One possible contributor to the Business and Sci/Tech confusion is unknown words
 \begin{itemize}
 \item \emph{One seed.} Every number comes from a single run, so there are no error bars, and small differences, such as the RNN against the trigram under the strided protocol (224.56 against 226.00), may be within run-to-run variation.
 \item \emph{Evaluation protocol.} Resetting the recurrent models' state at every 64-token chunk caps their history and penalizes their start of each chunk (Part~I); the headline numbers understate what the RNN and LSTM can do with more history.
-\item \emph{Confounds.} The Part~II settings differ in the scale of the embedding table as well as its content, and skip-gram against GloVe changes the method as well as the data. Part~III compares only two language models, uses a tokenizer that approximates WikiText-2's, and loses 7\% of AG News tokens to \tok{<unk>}.
+\item \emph{Confounds.} The Part~II settings differ in the scale of the embedding table as well as its content, and skip-gram against GloVe changes the method as well as the data. Part~III uses a tokenizer that approximates WikiText-2's and loses 7\% of AG News tokens to \tok{<unk>}, and six language models are few for judging how perplexity and downstream accuracy are related.
+\item \emph{The Transformer extension.} Its two runs reached the 20-epoch limit while still improving, and they depend on rescaling the pretrained vectors, a choice not varied here.
 \item \emph{Timing.} On this laptop the same training step takes about 1.7 times as long plugged in (Low Power Mode) as on battery; all reported costs were therefore measured in one power state.
 \end{itemize}
 
