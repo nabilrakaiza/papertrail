@@ -25,7 +25,10 @@ Every model here is trained from scratch, following the trail of classic papers 
 | II | Skip-gram embeddings (own) | done, cost in `results/word2vec_sg200.json` |
 | II | LSTM + frozen skip-gram | done, results in `results/lstm_w2v_frozen.json` |
 | II | LSTM + frozen GloVe | done, results in `results/lstm_glove_frozen.json` |
+| II (extension) | Transformer + frozen skip-gram / GloVe | done, results in `results/transformer_*_frozen.json` |
 | III | Feature extraction + logistic regression | done, results in `results/probe_agnews.json` |
+| III (extension) | The same probe on all six neural models | done, results in `results/probe_agnews_extended.json` |
+| Report | PDF | done, `report/report.tex` (6 pages of main text) |
 
 ## Repository layout
 
@@ -180,9 +183,15 @@ python -m papertrail.word2vec  --config configs/part2/word2vec.yaml   # timed se
 python -m papertrail.train     --config configs/part2/lstm_w2v_frozen.yaml
 python -m papertrail.train     --config configs/part2/lstm_glove_frozen.yaml
 python -m papertrail.generate  --configs configs/part1/lstm.yaml configs/part2/lstm_w2v_frozen.yaml configs/part2/lstm_glove_frozen.yaml --output results/generations_part2.json
+python -m papertrail.train     --config configs/part2/transformer_w2v_frozen.yaml    # optional extension
+python -m papertrail.train     --config configs/part2/transformer_glove_frozen.yaml  # optional extension
 
 # Part III
 python -m papertrail.probe     --config configs/part3/probe.yaml
+python -m papertrail.probe     --config configs/part3/probe_extended.yaml   # all six neural models
+
+# Report (needs a LaTeX engine, e.g. `brew install tectonic`)
+cd report && tectonic report.tex
 
 # Inspect a resolved config, or the corpus statistics
 python -m papertrail.config    configs/part2/lstm_glove_frozen.yaml
@@ -271,16 +280,28 @@ Part II, from `results/`: one architecture (the LSTM above), three input-embeddi
 - The three tables differ in scale as well as in content: the random table starts with standard deviation 1.0 (PyTorch's default), the skip-gram vectors have 0.19 and GloVe's 0.43.
 - Loss curves: `results/figures/part2_loss_curves.pdf`. Samples: `results/generations_part2.json`.
 
-Part III, from `results/probe_agnews.json`: topic classification on AG News (4 balanced classes, so chance is 25%) from frozen language-model representations.
+Optional extension: the same frozen embeddings on the Transformer. The vectors are rescaled by one constant to the Transformer's own initial scale (standard deviation 0.02, set by `emb_rescale_std` in the config), because it multiplies its embeddings by sqrt(200) before adding the position signal.
 
-| Language model | LM test PPL | Pooling | Chosen C | Test accuracy | Test macro-F1 |
-|---|---|---|---|---|---|
-| LSTM | 210.84 | mean | 0.01 | 62.89% | 0.628 |
-| LSTM | 210.84 | last token | 0.01 | 47.62% | 0.475 |
-| Transformer | 149.52 | mean | 1.0 | 78.45% | 0.784 |
-| Transformer | 149.52 | last token | 10.0 | 72.83% | 0.727 |
+| Transformer input embeddings | Trainable params | Validation PPL | Test PPL | Epochs run (best) |
+|---|---|---|---|---|
+| Random, trainable (Part I) | 13.5M | 160.41 | 149.52 | 9 (6) |
+| Own skip-gram, frozen | 7.7M | 138.66 | 131.17 | 20 (20) |
+| GloVe, frozen | 7.7M | 135.10 | 127.45 | 20 (20) |
 
-Three of the four chosen values of C sit at an end of the grid (0.01 to 10). The validation macro-F1 varies by at most 0.016 across the grid for any probe, so a wider grid would change little.
+Both extension runs used the full 20-epoch budget and were still improving.
+
+Part III: topic classification on AG News (4 balanced classes, so chance is 25%) from frozen language-model representations. `results/probe_agnews.json` has the two Part I models; `results/probe_agnews_extended.json` has all six and agrees with it on those two.
+
+| Language model | LM test PPL | Mean pooling: accuracy / macro-F1 | Last-token pooling: accuracy / macro-F1 |
+|---|---|---|---|
+| LSTM (Part I) | 210.84 | 62.89% / 0.628 | 47.62% / 0.475 |
+| Transformer (Part I) | 149.52 | 78.45% / 0.784 | 72.83% / 0.727 |
+| LSTM, skip-gram frozen | 147.01 | 79.39% / 0.794 | 74.54% / 0.745 |
+| LSTM, GloVe frozen | 167.55 | 83.18% / 0.831 | 77.80% / 0.778 |
+| Transformer, skip-gram frozen | 131.17 | 81.92% / 0.819 | 80.13% / 0.801 |
+| Transformer, GloVe frozen | 127.45 | 85.64% / 0.856 | 84.24% / 0.842 |
+
+The chosen regularization C is often at an end of the grid (0.01 to 10): 10 of the 12 probes. Validation macro-F1 varies by at most 0.023 across the grid for any probe, so a wider grid would change little.
 
 ## References and attribution
 

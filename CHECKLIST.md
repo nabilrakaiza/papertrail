@@ -12,8 +12,8 @@ Every required item from the brief, mapped to where it lives. Tick as you go. De
 - [x] Hardware, training budget, and timing procedure stated
 - [x] Train/val loss curves for the 3 neural models
 - [x] Generations: same prompts, matched decoding, same length
-- [ ] Discussion: repetition, local fluency, consistency
-- [ ] Tradeoffs, with observations kept separate from explanations
+- [x] Discussion: repetition, local fluency, consistency
+- [x] Tradeoffs, with observations kept separate from explanations
 
 ## Part II (30)
 
@@ -24,8 +24,8 @@ Every required item from the brief, mapped to where it lives. Tick as you go. De
 - [x] Vocab coverage and OOV initialization documented
 - [x] Entire input table frozen in settings 2 and 3 (`requires_grad=False` verified)
 - [x] Skip-gram training cost reported separately from LM training
-- [ ] Compare: test PPL, convergence, stability, generations
-- [ ] Interpret trainability vs. extra data seen by GloVe
+- [x] Compare: test PPL, convergence, stability, generations
+- [x] Interpret trainability vs. extra data seen by GloVe
 
 ## Part III (20)
 
@@ -33,18 +33,18 @@ Every required item from the brief, mapped to where it lives. Tick as you go. De
 - [x] How each input becomes a fixed-length vector is described
 - [x] Same classifier family and evaluation procedure for both
 - [x] Held-out accuracy and macro-F1
-- [ ] Representative errors examined
-- [ ] Does LM ranking (PPL) match downstream ranking?
+- [x] Representative errors examined
+- [x] Does LM ranking (PPL) match downstream ranking?
 
 ## Report and repo (10)
 
-- [ ] PDF, at most 6 pages excluding appendices and references
-- [ ] Dataset and preprocessing stated
-- [ ] Models and variants, evaluation criteria
-- [ ] Main quantitative and qualitative observations
-- [ ] Limitations, failure cases, lessons learned
-- [ ] README: data access, preprocessing, dependencies, commands, configs, seeds
-- [ ] External code, datasets, pretrained models, and tool assistance cited
-- [ ] No data, keys, or checkpoints committed
+- [x] PDF, at most 6 pages excluding appendices and references
+- [x] Dataset and preprocessing stated
+- [x] Models and variants, evaluation criteria
+- [x] Main quantitative and qualitative observations
+- [x] Limitations, failure cases, lessons learned
+- [x] README: data access, preprocessing, dependencies, commands, configs, seeds
+- [x] External code, datasets, pretrained models, and tool assistance cited
+- [x] No data, keys, or checkpoints committed
 - [ ] Fresh clone reproduces main numbers
 - [ ] Repo accessible to the instructor (or zip prepared)
