@@ -12,6 +12,10 @@
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{amsmath}
+\usepackage[font=small,skip=4pt]{caption}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
 \graphicspath{{../results/figures/}{figures/}}  % the first works in the repo, the second on Overleaf
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
@@ -30,7 +34,7 @@
 
 This report asks how four families of language model (an interpolated Kneser-Ney trigram, an RNN, an LSTM and a Transformer) compare at next-token prediction on WikiText-2 (Part~I); whether fixed pretrained input embeddings help or hurt compared with embeddings learned jointly with the model (Part~II); and whether a better language model also gives better representations for a downstream task, topic classification on AG News (Part~III).
 
-\paragraph{Data.} WikiText-2~\cite{merity2016} (\tok{wikitext-2-v1}, the pre-tokenized release, loaded with Hugging Face \tok{datasets}~\cite{lhoest2021}), with its official splits. Text is lowercased, empty lines are dropped and every remaining line ends with \tok{<eos>}. The vocabulary is built from the training split only (28,913 types including \tok{<pad>}, \tok{<unk>} and \tok{<eos>}); validation and test words outside it become \tok{<unk>}. Each split is one token stream: 2.08M training, 216K validation and 244K test tokens. The neural models read it in contiguous chunks of 64 tokens.
+\paragraph{Data.} WikiText-2~\cite{merity2016} (\tok{wikitext-2-v1}, the pre-tokenized release, via Hugging Face \tok{datasets}~\cite{lhoest2021}) with its official splits, lowercased, empty lines dropped and every line ended with \tok{<eos>}. The vocabulary comes from the training split only (28,913 types including \tok{<pad>}, \tok{<unk>} and \tok{<eos>}); other words become \tok{<unk>}. Each split is one token stream (2.08M training, 216K validation and 244K test tokens), read by the neural models in contiguous 64-token chunks.
 
 \paragraph{Evaluation.} Every model is scored on the same 244,101 test targets (every test token except the first) by mean next-token cross-entropy; perplexity is its exponential. Padding, which appears only in the final chunk, is excluded. At evaluation the RNN and LSTM start every chunk from a zero state, so all neural models see at most 64 tokens of history; the trigram sees two. All results are from one seed (42) on an Apple M1 laptop (8 GB) using PyTorch 2.9~\cite{paszke2019} on the \tok{mps} device.
 
@@ -44,34 +48,14 @@ This report asks how four families of language model (an interpolated Kneser-Ney
 
 The order is three. A 4-gram model would not help on a corpus of this size because of data sparsity: on the training text, 85\% of the 1.38M distinct trigrams already occur exactly once, and for 4-grams, 1.81M of the 2.08M occurrences are distinct and 94\% of those occur once (\tok{results/analysis\_part1.json}). Most 4-gram contexts met at test time would therefore be unseen or rare, so the model would mostly fall back to its trigram estimate anyway.
 
-\paragraph{Neural models.} All three (an Elman RNN~\cite{mikolov2010}, an LSTM~\cite{hochreiter1997} and a decoder-only Transformer~\cite{vaswani2017}) use randomly initialized, trainable 200-dimensional input embeddings and a separate (untied) output layer over the full vocabulary. Their sizes were chosen to keep training feasible on a laptop and were not tuned; the embedding size of 200 matches the public GloVe vectors used in Part~II.
+\paragraph{Neural models.} An Elman RNN~\cite{mikolov2010}, an LSTM~\cite{hochreiter1997} and a decoder-only Transformer~\cite{vaswani2017} (Table~\ref{tab:arch}), each with randomly initialized, trainable 200-dimensional input embeddings (the size of the GloVe vectors used in Part~II) and a separate, untied output layer. All are trained alike: AdamW~\cite{loshchilov2019} (weight decay 0.01), batch size 32, 64-token chunks read in corpus order so that the RNN and LSTM carry their state across batches (truncated backpropagation through time), gradient clipping at 1.0, and at most 20 epochs with early stopping after 3 epochs without improvement, keeping the checkpoint with the lowest validation loss. The one difference is the learning rate: a constant $10^{-3}$ for the RNN and LSTM, and $5\times10^{-4}$ with 1,000 warm-up steps and cosine decay for the Transformer, since a post-LN Transformer tends to diverge without warm-up. Every model predicts each target from preceding tokens only; for each neural model we checked that changing one token leaves every earlier prediction unchanged.
 
-\begin{table}[h]
-\centering\small
-\begin{tabular}{lll}
-\toprule
-Model & Architecture & Parameters \\
-\midrule
-RNN & 2-layer Elman RNN (tanh), hidden size 512, dropout 0.3 & 21.5M \\
-LSTM & 2-layer LSTM, hidden size 512, dropout 0.3 & 24.2M \\
-Transformer & decoder-only, 4 blocks, width 200, 4 heads, feed-forward 800, & 13.5M \\
- & dropout 0.2, post-LN, sinusoidal positions & \\
-\bottomrule
-\end{tabular}
-\caption{Neural architectures. In every model the output layer (hidden width $\times$ 28,913) is the largest single part: 14.8M of the RNN's and LSTM's parameters, 5.8M of the Transformer's.}
-\label{tab:arch}
-\end{table}
-
-All neural models are trained the same way: AdamW~\cite{loshchilov2019} (weight decay 0.01), batch size 32, chunks of 64 tokens, gradient-norm clipping at 1.0, at most 20 epochs with early stopping after 3 epochs without improvement in validation loss, keeping the checkpoint with the lowest validation loss. Batches are read in corpus order so that the RNN and LSTM can carry their hidden state across batches during training (truncated backpropagation through time over 64 tokens). The RNN and LSTM use a constant learning rate of $10^{-3}$; the Transformer uses $5\times10^{-4}$ with 1,000 warm-up steps and cosine decay.
-
-Every model predicts each target from preceding tokens only: the recurrent models read left to right, the Transformer uses a causal attention mask, and the trigram conditions on the two previous tokens. For each neural model this was checked directly: changing the token at one position leaves every prediction at earlier positions unchanged.
-
-The four models come from different families (counting, recurrence and attention), so their sizes are not matched: each was sized to train in reasonable time on the laptop. What is held equal is everything around them: the optimizer, batch size, epoch budget and early stopping, the context length and the evaluation. The one exception is the learning rate: the Transformer uses a lower peak rate with warm-up and cosine decay, because a post-LN Transformer tends to diverge without warm-up. None of the models was tuned.
+\paragraph{Fairness.} The models come from different families (counting, recurrence and attention), so their sizes are not matched: each was sized to train in reasonable time on the laptop, and none was tuned. Everything around them is held equal: optimizer, epoch budget and early stopping, context length and evaluation.
 
 \subsection{Results}
 
 \begin{table}[h]
-\centering\small
+\centering\footnotesize\setlength{\tabcolsep}{4pt}
 \begin{tabular}{lrrrcrrr}
 \toprule
 Model & Params & Val PPL & Test PPL & Epochs (best) & s / epoch & Time to best & Inference (tok/s) \\
@@ -86,78 +70,37 @@ Transformer & 13.5M & 160.41 & \textbf{149.52} & 9 (6) & 360 & 36 min & \textbf{
 \label{tab:part1}
 \end{table}
 
-\paragraph{Prediction quality.} The Transformer has the lowest test perplexity (149.52), followed by the LSTM (210.84), the trigram (226.00) and the RNN (245.14).
+\paragraph{Quality and cost.} The Transformer has the lowest test perplexity (149.52), followed by the LSTM (210.84), the trigram (226.00) and the RNN (245.14). It is also the cheapest neural model on every measure: the smallest, the fastest per epoch and to its best checkpoint, and the fastest at inference. The RNN and LSTM cost the same per epoch; the LSTM reaches its best checkpoint in half the time because it needs fewer epochs. The trigram is fitted in seconds.
 
-\paragraph{Cost.} The Transformer is also the cheapest neural model: the smallest, the fastest per epoch and to its best checkpoint, and the fastest at inference. The RNN and LSTM cost about the same per epoch; the LSTM reaches its best checkpoint in about half the time because it needs fewer epochs. The trigram is fitted in seconds.
-
-\paragraph{Learning behaviour.} Figure~\ref{fig:part1curves} shows training and validation loss per epoch. In all three models training loss keeps falling while validation loss levels off, and the gap between them grows. For the LSTM and the Transformer, validation loss then rises (LSTM: 5.421 at epoch 7 to 5.509 at epoch 10; Transformer: 5.078 at epoch 6 to 5.101 at epoch 9), which is overfitting in the strict sense; early stopping keeps the checkpoint before the rise. The RNN's validation loss is nearly flat from epoch 9 (between 5.594 and 5.619). Training loss is measured with dropout on, so the true gap is larger than plotted.
-
-All three neural models overfit, and by the gap between training and validation loss the Transformer overfits most: 0.78 nats at its best epoch, against 0.67 for the LSTM and 0.49 for the RNN, and 1.16 at its last epoch. Measured instead by how far validation loss rose after the best epoch, the LSTM overfits most (+0.088 nats, against +0.024 for the Transformer and +0.010 for the RNN). The Transformer also fits the training data fastest, with the lowest training loss at every epoch from the second on, while still reaching the lowest validation loss. One possible explanation is that attention lets the Transformer use every earlier token in the window directly, while a recurrent model must squeeze all of its history into one fixed-size state; direct access makes it easier to fit the exact patterns of the training text, which would show as a faster-falling training loss and a wider gap.
-
-The trigram has no training curve, but it can also fit its training data far better than unseen data: its perplexity on its own training text is 16.9, against 226.00 on test. Smoothing (the discount) plays the role that early stopping and dropout play for the neural models.
+\paragraph{Learning behaviour.} In all three neural models training loss keeps falling while validation loss levels off (Figure~\ref{fig:part1curves}); training loss is measured with dropout on, so the true gap is larger than plotted. All three overfit. By the gap between training and validation loss the Transformer overfits most (0.78 nats at its best epoch, against 0.67 for the LSTM and 0.49 for the RNN); by how far validation loss rises after the best epoch the LSTM does (+0.088 nats, against +0.024 and +0.010), and early stopping keeps the checkpoint before the rise. The Transformer also has the lowest training loss at every epoch from the second on, while still reaching the lowest validation loss. One possible explanation is that attention gives it direct access to every earlier token in the window, while a recurrent model must squeeze its history into one fixed-size state, so the Transformer can fit the exact patterns of the training text more easily. The trigram has no curve, but it also memorizes: its perplexity on its own training text is 16.9, against 226.00 on test, and its discount plays the role of dropout and early stopping.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\linewidth]{part1_loss_curves.pdf}
+\includegraphics[width=0.82\linewidth]{part1_loss_curves.pdf}
 \caption{Training and validation loss per epoch. The dot marks the kept checkpoint; the grey line is the trigram's validation loss.}
 \label{fig:part1curves}
 \end{figure}
 
-\paragraph{Generated text.} All models continue the same five prompts with temperature 0.8, top-$k$ 40 and 50 new tokens; the random generator is reset to the same seed for every continuation, and one sampling function serves all four models. Two examples, cut to their first 30 tokens (all samples: \tok{results/generations.json}):
-
-\begin{small}
-\begin{description}
-\item[Prompt] \emph{the album was released in}
-\item[KN trigram] the last game and the british empire casualties , " " and " the song . the ship 's cargo ship . the two \tok{<unk>} , \tok{<unk>} \tok{<unk>} , and \tok{<unk>} ( a ) \dots
-\item[RNN] the 2000s season at the start of 14 august 1935 . a month of 3 : 10 , 2013 , also criticized a single film award for the game . the film \dots
-\item[LSTM] the summer for three weeks of the uk and awards . in the episode in 2005 , the game was selected as the \tok{<unk>} \tok{<unk>} of the game 's best \dots
-\item[Transformer] the united states . \tok{<eos>} in the album , in the united states on august 25 , 2015 , the album was released as a single album . the album received \dots
-\item[Prompt] \emph{during the war , the}
-\item[KN trigram] \tok{<unk>} , with a \tok{<unk>} " . however , due to an end . he has been a long time , the first half of the country , and the city , \dots
-\item[RNN] 766th was a " \tok{<unk>} of the length , where no can be found for each of the first time . \tok{<eos>} the portuguese facade of the premaxillary \dots
-\item[LSTM] \tok{<unk>} \tok{<unk>} were able to see the series of privacy that has been found at one of the same year . \tok{<eos>} the episode was directed by \dots
-\item[Transformer] 766th was in order to create a heavy emplacement at about 20 km / h ( 11 mph ) . the 766th regiment 's regiment was made up to 40 km \dots
-\end{description}
-\end{small}
-
-Across the five samples per model, the share of distinct bigrams is 0.94 for the trigram, 0.93 for the RNN, 0.94 for the LSTM and 0.90 for the Transformer, and the trigram produces the most \tok{<unk>} tokens (6.2 per 50-token sample, against 3.0 to 4.0); five samples are too few for small differences to mean much. The trigram's samples are locally fluent over two or three words, but have no structure beyond that and do not stay on the prompt's topic. The RNN's are more fluent locally than the trigram's, but still lose the thread within a sentence or two and do not stay on topic. The LSTM's hold together slightly better over longer stretches, but are still not consistent with the prompt, most clearly for ``the species is found in''. The Transformer's are the most fluent both locally and across sentences. On repetition, the trigram is the clearest case: ``the album was released in'' and ``the species is found in'' led to an identical continuation (both end in ``in'', both sampled ``the'' next, and from then on its two-token context and the random draws coincide). Among the neural models the Transformer repeats most, with the lowest share of distinct bigrams (0.90) and words such as ``album'', ``766th'' and ``chapel'' recurring within single samples.
+\paragraph{Generated text.} All models continue the same five prompts with temperature 0.8, top-$k$ 40 and 50 new tokens, with the random generator re-seeded for every continuation and one sampling function for all four models (samples: \tok{results/generations.json}; examples in Appendix~\ref{app:samples}). The trigram's samples are locally fluent over two or three words but have no structure beyond that and drift off topic. The RNN's are more fluent locally but lose the thread within a sentence or two; the LSTM's hold together slightly better but still drift, most clearly for ``the species is found in''; the Transformer's are the most fluent, both locally and across sentences. On repetition, the trigram is the clearest case: ``the album was released in'' and ``the species is found in'' led to identical continuations, since once both had sampled ``the'' after ``in'', its two-token context and the random draws coincided. Among the neural models the Transformer repeats most (share of distinct bigrams 0.90, against 0.93 to 0.94), for example ``766th'' three times in one sample, and the trigram produces the most \tok{<unk>} (6.2 per sample, against 3.0 to 4.0); with five samples per model, small differences mean little.
 
 \subsection{How much history each model uses}
 
-Figure~\ref{fig:byposition} splits the test loss by position within the 64-token chunk, that is, by how many tokens of history each prediction had (\tok{results/analysis\_part1.json}). With one token of history the RNN and LSTM are far worse than both the Transformer and the trigram (perplexity 1,637 and 1,624, against 366 and 227). With more history all three neural models keep improving: from positions 8--15 to positions 32--63 their loss falls by 0.108 (RNN), 0.181 (LSTM) and 0.132 nats (Transformer), while the trigram's stays flat. Averaged over positions 32--63, the RNN is level with the trigram (perplexity 224 against 225), the LSTM is at 184 and the Transformer at 138.
+Figure~\ref{fig:byposition} splits the test loss by how many tokens of history each prediction had, that is, by position within the 64-token chunk (\tok{results/analysis\_part1.json}). With one token of history the RNN and LSTM are far worse than the Transformer and the trigram (perplexity 1,637 and 1,624, against 366 and 227). With more history all three neural models keep improving (from positions 8--15 to 32--63 their loss falls by 0.108, 0.181 and 0.132 nats) while the trigram stays flat; averaged over positions 32--63, the RNN is level with the trigram (224 against 225), the LSTM is at 184 and the Transformer at 138.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\linewidth]{part1_loss_by_position.pdf}
+\includegraphics[width=0.82\linewidth]{part1_loss_by_position.pdf}
 \caption{Test loss by the number of tokens of history, for every position of a 64-token chunk (3,815 chunks). The trigram always has two tokens of history; its line is flat.}
 \label{fig:byposition}
 \end{figure}
 
-\paragraph{Other ways of giving the models history.} Table~\ref{tab:context} scores the same test targets under two further protocols (\tok{results/analysis\_part1.json}). \emph{Strided}: windows of 64 tokens start every 32 tokens, each from a fresh state, and only their second half is scored, so every scored prediction has between 33 and 64 tokens of history and no model's slow start is counted. \emph{Carried}: the RNN and LSTM keep their state across the whole test stream, as in training, so their history is unlimited; the Transformer cannot do this, because it only ever attends to a fixed window.
-
-\begin{table}[h]
-\centering\small
-\begin{tabular}{lrrr}
-\toprule
-Model & Standard (64-token chunks) & Strided (33--64 tokens of history) & Carried (unlimited history) \\
-\midrule
-KN trigram & 226.00 & 226.00 & 226.00 \\
-RNN & 245.14 & 224.56 & 221.35 \\
-LSTM & 210.84 & 184.32 & 165.82 \\
-Transformer & 149.52 & 138.79 & -- \\
-\bottomrule
-\end{tabular}
-\caption{Test perplexity of the same checkpoints under three evaluation protocols. The trigram always conditions on two tokens, so its score does not change.}
-\label{tab:context}
-\end{table}
-
-With the slow start removed (strided), the RNN moves from behind the trigram to marginally ahead of it (224.56 against 226.00), and the ranking of the other models is unchanged. Given unlimited history (carried), the LSTM improves by a further 18.5 perplexity points, the RNN by 3.2. The Transformer keeps improving up to the end of its 64-token window; how it would behave beyond that was not measured. The standard protocol, fixed in the README in advance, remains the headline comparison; these are extra evidence.
+Two further protocols (Appendix~\ref{app:protocols}) agree: when no prediction is scored with fewer than 33 tokens of history, the RNN moves marginally ahead of the trigram (224.56 against 226.00) and the other rankings are unchanged; when the recurrent models carry their state across the whole test set, the LSTM improves by a further 18.5 perplexity points and the RNN by 3.2.
 
 \subsection{Tradeoffs}
 
 \paragraph{Observed.} The trigram is far cheaper than any neural model to fit and to score known text, but its perplexity is behind the LSTM's and the Transformer's (and ahead of the RNN's). The LSTM has slightly more parameters than the RNN (24.2M against 21.5M) and costs the same per epoch, but reaches a lower perplexity and gains much more from longer history (Table~\ref{tab:context}). The Transformer has the fewest parameters and the lowest perplexity, trains fastest and is the fastest at inference: among the neural models on this setup there is no tradeoff, it is better on every axis measured. This holds for what was tested: WikiText-2, models of the sizes in Table~\ref{tab:arch}, a laptop's training budget and a single seed.
 
-\paragraph{Possible explanations.} The LSTM's advantage over the RNN is consistent with its gating, which lets gradients and information pass across many steps without vanishing. The history results fit a vanishing-gradient explanation for the RNN rather than the LSTM: within the window the RNN gains least from extra history, and given unlimited history it improves by only 3.2 points, against 18.5 for the LSTM, whose gating lets information from far back survive. The RNN's loss to the trigram under the standard protocol is best explained by a cold start at the beginning of each chunk. During training the RNN and LSTM carried their state from one batch to the next, so they almost never had to predict from a zero state, which is exactly how every evaluation chunk begins; the Transformer, which has no state, was trained and evaluated on chunks from scratch in the same way. A shortage of history alone does not explain it: with a single token of history the Transformer (366) and the trigram (227, always two tokens) do far better. The Transformer's lead is consistent with its architecture: attention lets it see every earlier token in the window directly, instead of reading the context through a fixed-size recurrent state. Part of its lead comes from the start of each chunk (Figure~\ref{fig:byposition}), but not all of it: with that removed it is still well ahead (138.79 against 184.32 and 224.56, Table~\ref{tab:context}). Two of the other candidates do not explain it: it has the fewest parameters, and all models had the same 64-token context. The training budget was the same except for the Transformer's learning-rate schedule, whose contribution this experiment cannot rule out.
+\paragraph{Possible explanations.} The LSTM's advantage over the RNN is consistent with its gating, which lets gradients and information pass across many steps without vanishing; the history results fit a vanishing-gradient explanation for the RNN rather than the LSTM, since within the window the RNN gains least from extra history, and given unlimited history it improves by only 3.2 points against 18.5. The RNN's loss to the trigram is best explained by a cold start: during training the RNN and LSTM carried their state across batches and so almost never predicted from a zero state, which is how every evaluation chunk begins, while the stateless Transformer was trained and evaluated on chunks from scratch alike. A shortage of history alone does not explain it: with one token of history the Transformer (366) and the trigram (227) do far better. The Transformer's lead is consistent with its architecture: attention sees every earlier token in the window directly, instead of through a fixed-size recurrent state. Part of its lead comes from the chunk start, but not all of it: with that removed it is still well ahead (138.79 against 184.32 and 224.56). Its parameter count (the smallest) and context length (the same) do not explain it; its different learning-rate schedule cannot be ruled out.
 
 % ---------------------------------------------------------------------------
 \section{Part II: Embedding variants}
@@ -165,22 +108,14 @@ With the slow start removed (strided), the RNN moves from behind the trigram to 
 
 \subsection{Setup}
 
-The LSTM from Part~I is trained with three input-embedding settings. Everything except the input embedding table is identical across them: architecture, embedding size (200), data, training procedure and random seed, so every other weight starts from the same value.
+The Part~I LSTM is trained with three input-embedding settings; everything else (architecture, embedding size, data, training procedure and seed, and so every other initial weight) is identical. \emph{(1) Random, trainable:} the Part~I LSTM itself. \emph{(2) Own skip-gram, frozen:} 200-dimensional skip-gram vectors~\cite{mikolov2013} trained with gensim~\cite{rehurek2010} (window 5, 10 negative samples, 10 epochs) on the WikiText-2 training split only, covering every token except \tok{<pad>}; training them took 233\,s on the CPU, on top of the language-model training. \emph{(3) GloVe, frozen:} the public \tok{glove.6B.200d} vectors~\cite{pennington2014}, trained on 6B tokens of Wikipedia and Gigaword, covering 96.2\% of the vocabulary and 97.4\% of the training text; the most frequent missing tokens are \tok{<eos>} and the WikiText markers \tok{@-@}, \tok{@.@} and \tok{@,@}. Missing tokens get rows drawn from a normal distribution with mean 0 and the standard deviation of the found vectors (seeded), and the \emph{entire} table is frozen; after training it was checked to be bit-for-bit unchanged. Freezing leaves 18.4M trainable parameters instead of 24.2M.
 
-\begin{enumerate}
-\item \textbf{Random, trainable.} The Part~I LSTM itself: a random table learned jointly with the model.
-\item \textbf{Own skip-gram, frozen.} 200-dimensional skip-gram vectors~\cite{mikolov2013} trained with gensim~\cite{rehurek2010} on the WikiText-2 training split only (window 5, 10 negative samples, 10 epochs), with each line of text as one training sequence. They cover every vocabulary token except \tok{<pad>}, which never occurs. Training them took 233\,s on the CPU, in addition to the language-model training.
-\item \textbf{GloVe, frozen.} The public \tok{glove.6B.200d} vectors~\cite{pennington2014}, trained on 6B tokens of Wikipedia and Gigaword. They cover 27,810 of the 28,913 vocabulary tokens (96.2\%), which make up 97.4\% of the training text. The most frequent missing tokens are \tok{<eos>} (23,767 occurrences in training) and the WikiText markers \tok{@-@}, \tok{@.@} and \tok{@,@}.
-\end{enumerate}
-
-In both frozen settings a token without a vector gets a row drawn from a normal distribution with mean 0 and the standard deviation of the vectors that were found, from a seeded generator. The \emph{entire} table, these rows included, is frozen; after training it was checked to be bit-for-bit unchanged. Freezing leaves 18.4M trainable parameters, against 24.2M in the random setting.
-
-The settings are built to answer two questions. Settings 1 and 2 both learn their embeddings from the same WikiText-2 training text; they differ in whether the embeddings are learned jointly with the language model and kept trainable, or learned separately and then frozen. Settings 2 and 3 are both learned separately and frozen; they differ in the data the embeddings were trained on (2M WikiText tokens against 6B tokens of general text), and also in the method (skip-gram against GloVe), so this second comparison does not isolate the data alone.
+Settings 1 and 2 learn from the same text and differ in whether the embeddings are learned jointly and kept trainable, or learned separately and frozen. Settings 2 and 3 are both learned separately and frozen and differ in the data (2M WikiText tokens against 6B tokens of general text), but also in the method, so they do not isolate the data alone.
 
 \subsection{Results}
 
 \begin{table}[h]
-\centering\small
+\centering\footnotesize\setlength{\tabcolsep}{4pt}
 \begin{tabular}{lrrcccr}
 \toprule
 Input embeddings & Trainable params & Coverage & Val PPL & Test PPL & Epochs (best) & s / epoch \\
@@ -196,41 +131,24 @@ GloVe, frozen & 18.4M & 96.2\% & 178.42 & 167.55 & 13 (10) & 433 \\
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\linewidth]{part2_loss_curves.pdf}
+\includegraphics[width=0.82\linewidth]{part2_loss_curves.pdf}
 \caption{Training and validation loss per epoch for the three embedding settings. The dot marks the kept checkpoint.}
 \label{fig:part2curves}
 \end{figure}
 
 \paragraph{Prediction quality.} Both frozen settings beat the random, trainable one by a wide margin: test perplexity 147.01 with the skip-gram vectors and 167.55 with GloVe, against 210.84. The frozen skip-gram LSTM is also slightly better than the Part~I Transformer (149.52).
 
-\paragraph{Convergence and stability.} After one epoch the three settings are level (validation loss 5.91, 5.93 and 5.99). From the second epoch on, both frozen settings have the lower validation loss at every epoch, and they keep improving for longer: their best epoch is 10, against 7 for the random setting, whose validation loss then rises (Figure~\ref{fig:part2curves}). After the first epoch all three curves are smooth; the random setting's best epoch is a small dip (5.482, 5.421, 5.456 over epochs 6 to 8), while the frozen settings flatten out steadily. Their time per epoch is similar to the random setting's (452 and 433\,s against 480\,s); the differences are within the variation between timing rounds.
+\paragraph{Convergence and stability.} After one epoch the three settings are level (validation loss 5.91, 5.93 and 5.99). From the second epoch on both frozen settings are lower at every epoch and keep improving for longer: their best epoch is 10, against 7 for the random setting, whose validation loss then rises (Figure~\ref{fig:part2curves}). All curves are smooth after the first epoch; the random setting's best epoch is a small isolated dip. Time per epoch is similar (452 and 433\,s against 480\,s, within the variation between timing rounds).
 
-\paragraph{Generated text.} The same prompts and decoding as in Part~I (all samples: \tok{results/generations\_part2.json}). The random setting's samples tend not to stay on the prompt's topic; both frozen settings stay on topic more consistently (``the species is found in'' continues with genus, holotype and habitats under skip-gram, and with birds under GloVe). Local fluency is reasonable in all three and better in the frozen settings. On repetition, the frozen settings repeat more within a sample: their share of distinct bigrams is 0.92 (skip-gram) and 0.91 (GloVe) against 0.94 for the random setting, and the skip-gram sample for the species prompt uses ``species'' four times and ``genus'' three times. The GloVe setting produces the most \tok{<unk>} tokens (5.2 per sample, against 2.0 for skip-gram and 3.0 for random).
+\paragraph{Generated text.} With the same prompts and decoding as in Part~I (\tok{results/generations\_part2.json}), the random setting's samples tend to drift off topic, while both frozen settings stay on topic more consistently (``the species is found in'' continues with genus and habitats under skip-gram, and with birds under GloVe) and are more fluent locally. They also repeat more within a sample (share of distinct bigrams 0.92 and 0.91, against 0.94; the skip-gram species sample uses ``species'' four times), and GloVe produces the most \tok{<unk>} (5.2 per sample, against 2.0 and 3.0).
 
 \subsection{Interpretation}
 
-\paragraph{Trainability (settings 1 and 2).} Learning the embeddings separately and then freezing them helps here. One possible reason is stability: with a frozen table, the LSTM's inputs do not change during training, while in the random setting the embedding table and the rest of the model have to be learned at the same time from the same data, so the LSTM is fitted to inputs that keep moving. The frozen settings also overfit later and less, which is consistent with this: they reach their best epoch three epochs later, at a lower validation loss. A second, simpler reason may also contribute: freezing the table leaves 5.8M fewer parameters to fit (18.4M against 24.2M) from the same 2.08M training tokens, so the frozen models have less room to memorize the training text. The two reasons are compatible, and this experiment cannot separate them.
+\paragraph{Trainability (settings 1 and 2).} Learning the embeddings separately and then freezing them helps here. One possible reason is stability: with a frozen table the LSTM's inputs stop moving, while in the random setting the table and the rest of the model must be learned at once from the same data, so the LSTM is fitted to inputs that keep moving. The frozen settings also overfit later and less (their best epoch comes three epochs later, at a lower validation loss). A second, simpler reason may contribute: freezing leaves 5.8M fewer parameters to fit from the same 2.08M training tokens, so less room to memorize the training text. The two are compatible, and this experiment cannot separate them.
 
-\paragraph{Extra data (settings 2 and 3).} The skip-gram vectors were trained on the very corpus the language model is trained and tested on, so they match its vocabulary, tokenization and topics, while GloVe was trained on different text, tokenized differently. On this corpus that match appears to outweigh the roughly 3,000 times more data GloVe saw, although the two settings also differ in method. It also shows in coverage: GloVe has no vectors for \tok{<eos>} or the \tok{@-@}, \tok{@.@} and \tok{@,@} markers, some of the most frequent tokens in WikiText-2, so in the GloVe setting those tokens keep random, frozen rows that the model can never adapt. On a general corpus closer to GloVe's own training text, we would expect GloVe to do better than vectors trained on WikiText-2 alone; that was not tested here.
+\paragraph{Extra data (settings 2 and 3).} The skip-gram vectors were trained on the very corpus the language model is trained and tested on, so they match its vocabulary, tokenization and topics; GloVe was trained on different, differently tokenized text. On this corpus that match appears to outweigh GloVe's roughly 3,000 times more data, although the two settings also differ in method. It shows in coverage too: GloVe lacks \tok{<eos>} and the \tok{@-@}, \tok{@.@} and \tok{@,@} markers, among the most frequent tokens here, which therefore keep random, frozen rows. On text closer to GloVe's own we would expect GloVe to do better; that was not tested.
 
-\paragraph{Extension: the same embeddings on the Transformer.} As an optional extension, the Part~I Transformer was also trained with the skip-gram and GloVe tables frozen in (\tok{results/transformer\_*\_frozen.json}). Its embeddings are multiplied by $\sqrt{200} \approx 14$ before the position signal is added, and it is built for a table at its own initial scale (standard deviation 0.02), so both tables were rescaled by a single constant to that scale, which keeps every vector's direction and the ratios of the distances between them. Everything else matches the Part~I Transformer, which leaves 7.7M trainable parameters instead of 13.5M.
-
-\begin{table}[h]
-\centering\small
-\begin{tabular}{lcccc}
-\toprule
-Transformer input embeddings & Trainable params & Val PPL & Test PPL & Epochs (best) \\
-\midrule
-Random, trainable (Part~I) & 13.5M & 160.41 & 149.52 & 9 (6) \\
-Own skip-gram, frozen & 7.7M & 138.66 & 131.17 & 20 (20) \\
-GloVe, frozen & 7.7M & 135.10 & \textbf{127.45} & 20 (20) \\
-\bottomrule
-\end{tabular}
-\caption{The Part II embedding settings applied to the Transformer.}
-\label{tab:part2transformer}
-\end{table}
-
-Frozen pretrained embeddings help the Transformer as well, by 18 to 22 perplexity points, but here GloVe beats skip-gram, the reverse of the LSTM result. Both runs used the full 20-epoch budget and were still improving at the end, so their scores are limited by the budget rather than converged; in their last two or three epochs training loss rose slightly while validation loss kept falling, which is not explained here. Both checkpoints reproduce their recorded losses when reloaded, and both tables are bit-for-bit unchanged after training. \todo{Your reading: why might GloVe beat skip-gram for the Transformer but not for the LSTM? Keep it short and mark it as a hypothesis.}
+\paragraph{The same embeddings on the Transformer.} Applied to the Transformer as an optional extension (Appendix~\ref{app:transformer}), with the vectors rescaled to its own initial scale, frozen pretrained embeddings help as well: test perplexity 131.17 with skip-gram and 127.45 with GloVe, against 149.52. Here GloVe beats skip-gram, the reverse of the LSTM result. \todo{Your reading: why might GloVe beat skip-gram for the Transformer but not for the LSTM? Keep it short and mark it as a hypothesis.}
 
 \paragraph{A confound: scale.} The three tables also start at different scales: the random table has standard deviation 1.0 (PyTorch's default), the skip-gram vectors 0.19 and GloVe 0.43. The initial scale matters in itself, so part of the gap between the random setting and the frozen ones may come from scale rather than from what the vectors contain. This experiment cannot separate the two; a random, trainable table started at the pretrained vectors' scale would.
 
@@ -240,11 +158,9 @@ Frozen pretrained embeddings help the Transformer as well, by 18 to 22 perplexit
 
 \subsection{Setup}
 
-\paragraph{Task and data.} Topic classification on AG News~\cite{zhang2015} (four balanced classes: World, Sports, Business, Sci/Tech; chance is 25\%). A class-balanced, seeded sample of 10,000 items from the official training split is used for training and a disjoint 2,000 for validation; the official test split (7,600) is used once. Each item (headline and summary) is lowercased, tokenized following WikiText-2's conventions and mapped to the WikiText-2 vocabulary, so the language models see it in the same format as their own training data; 7.0\% of test tokens become \tok{<unk>}. Items are cut to 64 tokens, the chunk length the models were trained on; 3.8\% of test items are longer.
+\paragraph{Task and data.} Topic classification on AG News~\cite{zhang2015} (World, Sports, Business, Sci/Tech; balanced, so chance is 25\%). A class-balanced, seeded sample of 10,000 items from the official training split is used for training and a disjoint 2,000 for validation; the official test split (7,600) is used once. Items are lowercased, tokenized following WikiText-2's conventions and mapped to its vocabulary (7.0\% of test tokens become \tok{<unk>}), and cut to the 64-token training length (3.8\% of test items are longer).
 
-\paragraph{Representations.} Six frozen language models are probed: the Part~I LSTM and Transformer, and the four frozen-embedding variants from Part~II (LSTM and Transformer, each with skip-gram and with GloVe). Each reads every item from a fresh state, and its final-layer hidden states (512 numbers per token for the LSTMs, 200 for the Transformers) are collapsed into one vector per item in two ways: \emph{mean pooling}, the average of the hidden states over the item's real tokens, excluding padding; and \emph{last-token pooling}, the hidden state at the item's last real token, which has read the whole item. Both models read left to right, so the padding after an item cannot affect these states.
-
-\paragraph{Classifier.} The same for all twelve representations: multinomial logistic regression (scikit-learn~\cite{pedregosa2011}) on standardized features (standardization fitted on the training items only), with the regularization strength chosen by validation macro-F1 from $\{0.01, 0.1, 1, 10\}$. Only the classifier is trained; the language models stay frozen.
+\paragraph{Representations and classifier.} Six frozen language models are probed: the Part~I LSTM and Transformer and the four frozen-embedding variants (Part~II and Appendix~\ref{app:transformer}). Each reads every item from a fresh state, and its final-layer hidden states (512 numbers per token for the LSTMs, 200 for the Transformers) become one vector per item by \emph{mean pooling} over the real tokens, excluding padding, or by \emph{last-token pooling}, the state at the last real token, which has read the whole item; padding comes after the item, so it cannot affect these states. The classifier is the same for all twelve: multinomial logistic regression (scikit-learn~\cite{pedregosa2011}) on standardized features (fitted on the training items only), with the regularization strength chosen by validation macro-F1 from $\{0.01, 0.1, 1, 10\}$. Only the classifier is trained.
 
 \subsection{Results}
 
@@ -267,47 +183,22 @@ Transformer, GloVe frozen & 127.45 & \textbf{85.64\%} & \textbf{0.856} & \textbf
 \label{tab:part3}
 \end{table}
 
-\paragraph{Which representation works better.} Mean pooling beats last-token pooling for every one of the six models; the gap is largest for the Part~I LSTM (15.3 points) and smallest for the Transformers with frozen embeddings (1.4 to 1.8 points). With the input embeddings held fixed, the Transformer's representations beat the LSTM's every time, under both poolings. Frozen pretrained embeddings also improve classification sharply: the LSTM rises from 62.89\% to 79.39\% with skip-gram and 83.18\% with GloVe, and the best representation overall is the Transformer with frozen GloVe (85.64\%). The last real token of 84\% of test items is a full stop, so last-token pooling takes the state the model holds just after a sentence ends, when its job is mostly to predict what follows the end of a sentence rather than to describe what the item was about. The information that identifies the topic is spread over the item and is not guaranteed to be in that final state; averaging over every token keeps it.
+\paragraph{Which representation works better.} Mean pooling beats last-token pooling for all six models, most for the Part~I LSTM (15.3 points) and least for the frozen-embedding Transformers (1.4 to 1.8). With the embeddings held fixed, the Transformer beats the LSTM every time, under both poolings, and frozen pretrained embeddings raise accuracy sharply: the LSTM goes from 62.89\% to 79.39\% with skip-gram and 83.18\% with GloVe, and the best representation overall is the Transformer with GloVe (85.64\%). For 84\% of test items the last real token is a full stop, so last-token pooling takes the state just after a sentence ends, whose job is mostly to predict what follows the end of a sentence rather than to describe the item; the topic is spread over the item, and averaging keeps it. The pooling gap also fits the architectural difference seen in Part~I: in the LSTM, early information must pass through every later step to reach the final state, while the Transformer's last position attends to every earlier token directly. Likewise, each LSTM state compresses all earlier history into one fixed-size state, while each Transformer state draws on the earlier tokens directly.
 
-The gap between the two poolings fits the same architectural difference as in Part~I. In the LSTM, information from early in an item has to be carried through every later step to reach the final state, so the last state holds the beginning of the item only weakly. In the Transformer, the last position attends to every earlier token directly, without recurrence, so its final state loses less. The same holds for the states that mean pooling averages: each LSTM state summarizes all the history before it through one fixed-size state, while each Transformer state draws on the earlier tokens directly.
+\paragraph{Errors.} Across the four probes of the Part~I models, Sports is easiest and Business and Sci/Tech hardest (best probe: F1 0.89 for Sports, 0.80 World, 0.73 Sci/Tech, 0.71 Business), and the largest confusions are between Business and Sci/Tech (331 and 320 items). The most confident errors (Appendix~\ref{app:errors}) include sports stories labelled World, arguably labelling problems; items that fit both Business and Sci/Tech; and a few plain model errors. Unknown words give the Business and Sci/Tech confusion only weak support (Appendix~\ref{app:errors}). A more likely explanation is ambiguity: much news, such as a technology company's earnings, is as much Business as Sci/Tech, and since each item carries a single hard label rather than a distribution over classes, such items will be confused whichever representation is used.
 
-\paragraph{Errors.} The error analysis covers the four probes of the two Part~I models. Every one of them finds Sports easiest and Business and Sci/Tech hardest (best probe: F1 0.89 for Sports, 0.80 World, 0.73 Sci/Tech, 0.71 Business), and its largest confusions are between Business and Sci/Tech (331 Business items predicted as Sci/Tech, 320 the other way). The ten most confident errors of each probe include three kinds:
-\begin{itemize}
-\item \emph{Doubtful labels.} Sports stories labelled World are the most common confident error in every probe, for example ``Football: Azerbaijan 0-1 England. Michael Owen heads England's winner in the World Cup qualifier'' (labelled World, predicted Sports). These are arguably problems of the dataset, not of the model.
-\item \emph{Genuinely ambiguous topics.} ``How Serious Is Pfizer's Condition? The stock is feeling some pain these days'' (Business, predicted Sci/Tech) and ``Treo 650 on Monday? The blogs are buzzing that the Treo 650 will be released'' (Sci/Tech, predicted Business) could each reasonably belong to either class.
-\item \emph{Model errors.} ``Calif.\ Lawmaker Wants to Privatize State Pensions'' (Business) is predicted as Sports with full confidence by the Transformer with last-token pooling.
-\end{itemize}
-
-One possible contributor to the Business and Sci/Tech confusion is unknown words, since both classes are full of company and product names that WikiText-2 does not contain. The data give this only weak support: Sci/Tech has the highest \tok{<unk>} rate (8.2\% of tokens, against 6.2\% for World), but Business (7.0\%) is no higher than Sports (7.0\%); in the best probe, Business items predicted as Sci/Tech contain slightly more \tok{<unk>} than correctly classified ones (7.8\% against 7.0\%), and Sci/Tech items predicted as Business hardly more (8.4\% against 8.3\%); in the two LSTM probes, Sci/Tech items predicted as Business contain \emph{fewer} \tok{<unk>} than correctly classified ones. A more likely explanation is ambiguity in the task itself. Much news sits between the two classes: a technology company's earnings, for example, is as much Business as Sci/Tech, and which one it gets depends on the labelling. Each item carries a single hard label, not a distribution over classes, so the dataset has no way to say ``somewhere in between'', and items of this kind will be confused whichever representation is used.
-
-\paragraph{Language-model ranking against downstream ranking.} Between the two Part~I models the rankings agree: the Transformer has the lower perplexity and gives the better features. Across all six models they mostly agree, but not fully: the rank correlation (Spearman) between test perplexity and test accuracy is 0.66 with mean pooling and 0.83 with last-token pooling. The clearest exception is the LSTM with frozen GloVe, fifth of six in perplexity (167.55) but second in classification with mean pooling (83.18\%); GloVe gives the better features for both architectures, including the LSTM, where it gives the worse perplexity. Better next-token prediction therefore goes with better features in general here, but which pretrained vectors a model starts from can matter more for the downstream task than its perplexity suggests. Six models is still a small sample for a correlation. \todo{Your reading of the GloVe exception, marked as a hypothesis. One fact you could use: GloVe's training text includes the Gigaword newswire corpus, and AG News is news.}
+\paragraph{Language-model ranking against downstream ranking.} Between the two Part~I models the rankings agree. Across all six they mostly agree, but not fully: the Spearman rank correlation between test perplexity and test accuracy is 0.66 with mean pooling and 0.83 with last-token pooling. The clearest exception is the LSTM with frozen GloVe, fifth of six in perplexity (167.55) but second in classification with mean pooling (83.18\%); GloVe gives the better features for both architectures. Better next-token prediction goes with better features in general here, but the pretrained vectors a model starts from can matter more downstream than its perplexity suggests; six models are still a small sample. \todo{Your reading of the GloVe exception, marked as a hypothesis. One fact you could use: GloVe's training text includes the Gigaword newswire corpus, and AG News is news.}
 
 % ---------------------------------------------------------------------------
 \section{Limitations and lessons}
 % ---------------------------------------------------------------------------
-\paragraph{Limitations.} The main limitation is compute. Everything was trained on one laptop (Apple M1, 8\,GB, no CUDA GPU), so the models had to be kept small, none of them could be tuned, and each run had a limited budget; how the comparison changes for larger models is untested. The rest follow from it:
-\begin{itemize}
-\item \emph{One seed.} Every number comes from a single run, so there are no error bars, and small differences, such as the RNN against the trigram under the strided protocol (224.56 against 226.00), may be within run-to-run variation.
-\item \emph{Evaluation protocol.} Resetting the recurrent models' state at every 64-token chunk caps their history and penalizes their start of each chunk (Part~I); the headline numbers understate what the RNN and LSTM can do with more history.
-\item \emph{Confounds.} The Part~II settings differ in the scale of the embedding table as well as its content, and skip-gram against GloVe changes the method as well as the data. Part~III uses a tokenizer that approximates WikiText-2's and loses 7\% of AG News tokens to \tok{<unk>}, and six language models are few for judging how perplexity and downstream accuracy are related.
-\item \emph{The Transformer extension.} Its two runs reached the 20-epoch limit while still improving, and they depend on rescaling the pretrained vectors, a choice not varied here.
-\item \emph{Timing.} On this laptop the same training step takes about 1.7 times as long plugged in (Low Power Mode) as on battery; all reported costs were therefore measured in one power state.
-\end{itemize}
+\paragraph{Limitations.} The main limitation is compute: everything ran on one laptop (Apple M1, 8\,GB, no CUDA GPU), so the models are small and untuned, each run had a limited budget, and larger models are untested. The rest follow from it. \emph{One seed:} there are no error bars, so small differences, such as the RNN against the trigram under the strided protocol, may be run-to-run variation. \emph{Protocol:} resetting the recurrent state every 64 tokens caps the RNN's and LSTM's history and penalizes the start of each chunk, so the headline numbers understate them. \emph{Confounds:} in Part~II the tables differ in scale as well as content, and skip-gram against GloVe changes the method as well as the data; Part~III's tokenizer only approximates WikiText-2's and loses 7\% of AG News tokens to \tok{<unk>}, and six models are few for a correlation. \emph{Transformer extension:} both runs hit the 20-epoch limit while still improving, and they rely on rescaling the vectors. \emph{Timing:} a training step takes about 1.7 times as long plugged in (Low Power Mode) as on battery, so all costs were measured in one power state.
 
-\paragraph{Failure cases.} The RNN scores worse than the trigram under the standard protocol, and the evidence points to its start of each chunk rather than to long-range forgetting. The first LSTM run was invalid: in PyTorch 2.9 on the \tok{mps} device, the dropout between the layers of the built-in two-layer LSTM silently keeps the mode of its first call and a fixed mask, and the run was caught only because a reloaded checkpoint did not reproduce its own recorded loss. In Part~III many of the most confident errors are doubtful or ambiguous labels rather than model errors.
+\paragraph{Failure cases.} The RNN scores worse than the trigram under the standard protocol, and the evidence points to the start of each chunk rather than to long-range forgetting. The first LSTM run was invalid: in PyTorch 2.9 on \tok{mps}, the dropout between the layers of the built-in two-layer LSTM keeps the mode of its first call and a fixed mask, and this was caught only because a reloaded checkpoint did not reproduce its own recorded loss. In Part~III many of the most confident errors are doubtful or ambiguous labels.
 
-\paragraph{Lessons learned.} \todo{Check these: the first two are from your notes, the last two are suggestions.}
-\begin{itemize}
-\item How Kneser-Ney smoothing works, and why continuation counts are a better lower-order estimate than raw frequency.
-\item A neural model is not automatically better than a well-smoothed n-gram: the RNN lost to the trigram here.
-\item How a model is evaluated can decide the ranking: the RNN's loss to the trigram came from the evaluation protocol's cold start, which only a per-position breakdown revealed.
-\item Results need checking, not just running: reloading every checkpoint in a fresh process is what exposed the LSTM dropout bug.
-\end{itemize}
+\paragraph{Tool use.} An AI coding assistant was used substantially for the code and for drafting this report from the author's notes; Appendix~\ref{app:tools} states exactly how.
 
-% ---------------------------------------------------------------------------
-\section*{Tool use}
-% ---------------------------------------------------------------------------
-An AI coding assistant, Claude Code (Anthropic) running Claude Opus 5.5, was used substantially. \emph{Code:} it wrote the configuration loading, data pipeline, RNN/LSTM model, training loop, benchmark, embedding code, AG News preparation, probe, analysis and figure scripts; the author wrote the Transformer (ported from an earlier implementation of their own) and, with review, parts of the Kneser-Ney trigram and the evaluation, generation and pooling code. The repository README lists the split file by file. \emph{Report:} it produced the tables and figures and the measured facts, and turned the author's notes into draft prose; the questions asked, the interpretations and the explanations are the author's, given in those notes and revised by the author. \todo{Check this matches how you want to describe the help, and keep it consistent with the README.}
+\paragraph{Lessons learned.} \todo{Check these: the first two are from your notes, the last two are suggestions.} (1) How Kneser-Ney smoothing works, and why continuation counts are a better lower-order estimate than raw frequency. (2) A neural model is not automatically better than a well-smoothed n-gram: the RNN lost to the trigram here. (3) How a model is evaluated can decide the ranking: the RNN's loss came from the protocol's cold start, which only a per-position breakdown revealed. (4) Results need checking, not just running: reloading every checkpoint in a fresh process is what exposed the LSTM dropout bug.
 
 \begin{thebibliography}{99}\small
 \bibitem{chen1999} S.~F. Chen and J.~Goodman. An empirical study of smoothing techniques for language modeling. \emph{Computer Speech \& Language}, 13(4), 1999.
@@ -327,5 +218,81 @@ An AI coding assistant, Claude Code (Anthropic) running Claude Opus 5.5, was use
 \end{thebibliography}
 
 \noindent\textbf{Other code used.} The Transformer is ported from the author's earlier implementation, \url{https://github.com/nabilrakaiza/transformer}. \todo{If that implementation was adapted from ``The Annotated Transformer'' (Harvard NLP), cite it here; otherwise delete this note.}
+
+\clearpage
+\appendix
+\section{Additional material}
+
+\subsection{Generated samples (Part I)}\label{app:samples}
+Two examples, cut to their first 30 tokens (all samples: \tok{results/generations.json}):
+
+\begin{small}
+\begin{description}
+\item[Prompt] \emph{the album was released in}
+\item[KN trigram] the last game and the british empire casualties , " " and " the song . the ship 's cargo ship . the two \tok{<unk>} , \tok{<unk>} \tok{<unk>} , and \tok{<unk>} ( a ) \dots
+\item[RNN] the 2000s season at the start of 14 august 1935 . a month of 3 : 10 , 2013 , also criticized a single film award for the game . the film \dots
+\item[LSTM] the summer for three weeks of the uk and awards . in the episode in 2005 , the game was selected as the \tok{<unk>} \tok{<unk>} of the game 's best \dots
+\item[Transformer] the united states . \tok{<eos>} in the album , in the united states on august 25 , 2015 , the album was released as a single album . the album received \dots
+\item[Prompt] \emph{during the war , the}
+\item[KN trigram] \tok{<unk>} , with a \tok{<unk>} " . however , due to an end . he has been a long time , the first half of the country , and the city , \dots
+\item[RNN] 766th was a " \tok{<unk>} of the length , where no can be found for each of the first time . \tok{<eos>} the portuguese facade of the premaxillary \dots
+\item[LSTM] \tok{<unk>} \tok{<unk>} were able to see the series of privacy that has been found at one of the same year . \tok{<eos>} the episode was directed by \dots
+\item[Transformer] 766th was in order to create a heavy emplacement at about 20 km / h ( 11 mph ) . the 766th regiment 's regiment was made up to 40 km \dots
+\end{description}
+\end{small}
+
+\subsection{Other evaluation protocols (Part I)}\label{app:protocols}
+\paragraph{Other ways of giving the models history.} Table~\ref{tab:context} scores the same test targets under two further protocols (\tok{results/analysis\_part1.json}). \emph{Strided}: windows of 64 tokens start every 32 tokens, each from a fresh state, and only their second half is scored, so every scored prediction has between 33 and 64 tokens of history and no model's slow start is counted. \emph{Carried}: the RNN and LSTM keep their state across the whole test stream, as in training, so their history is unlimited; the Transformer cannot do this, because it only ever attends to a fixed window.
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+Model & Standard (64-token chunks) & Strided (33--64 tokens of history) & Carried (unlimited history) \\
+\midrule
+KN trigram & 226.00 & 226.00 & 226.00 \\
+RNN & 245.14 & 224.56 & 221.35 \\
+LSTM & 210.84 & 184.32 & 165.82 \\
+Transformer & 149.52 & 138.79 & -- \\
+\bottomrule
+\end{tabular}
+\caption{Test perplexity of the same checkpoints under three evaluation protocols. The trigram always conditions on two tokens, so its score does not change.}
+\label{tab:context}
+\end{table}
+
+With the slow start removed (strided), the RNN moves from behind the trigram to marginally ahead of it (224.56 against 226.00), and the ranking of the other models is unchanged. Given unlimited history (carried), the LSTM improves by a further 18.5 perplexity points, the RNN by 3.2. The Transformer keeps improving up to the end of its 64-token window; how it would behave beyond that was not measured. The standard protocol, fixed in the README in advance, remains the headline comparison; these are extra evidence.
+
+\subsection{The Part II embeddings on the Transformer}\label{app:transformer}
+As an optional extension, the Part~I Transformer was also trained with the skip-gram and GloVe tables frozen in (\tok{results/transformer\_*\_frozen.json}). Its embeddings are multiplied by $\sqrt{200} \approx 14$ before the position signal is added, and it is built for a table at its own initial scale (standard deviation 0.02), so both tables were rescaled by a single constant to that scale, which keeps every vector's direction and the ratios of the distances between them. Everything else matches the Part~I Transformer, which leaves 7.7M trainable parameters instead of 13.5M.
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Transformer input embeddings & Trainable params & Val PPL & Test PPL & Epochs (best) \\
+\midrule
+Random, trainable (Part~I) & 13.5M & 160.41 & 149.52 & 9 (6) \\
+Own skip-gram, frozen & 7.7M & 138.66 & 131.17 & 20 (20) \\
+GloVe, frozen & 7.7M & 135.10 & \textbf{127.45} & 20 (20) \\
+\bottomrule
+\end{tabular}
+\caption{The Part II embedding settings applied to the Transformer.}
+\label{tab:part2transformer}
+\end{table}
+
+Frozen pretrained embeddings help the Transformer as well, by 18 to 22 perplexity points, but here GloVe beats skip-gram, the reverse of the LSTM result. Both runs used the full 20-epoch budget and were still improving at the end, so their scores are limited by the budget rather than converged; in their last two or three epochs training loss rose slightly while validation loss kept falling, which is not explained here. Both checkpoints reproduce their recorded losses when reloaded, and both tables are bit-for-bit unchanged after training.
+
+\subsection{Representative errors and unknown words (Part III)}\label{app:errors}
+The ten most confident errors of each probe include three kinds:
+\begin{itemize}
+\item \emph{Doubtful labels.} Sports stories labelled World are the most common confident error in every probe, for example ``Football: Azerbaijan 0-1 England. Michael Owen heads England's winner in the World Cup qualifier'' (labelled World, predicted Sports). These are arguably problems of the dataset, not of the model.
+\item \emph{Genuinely ambiguous topics.} ``How Serious Is Pfizer's Condition? The stock is feeling some pain these days'' (Business, predicted Sci/Tech) and ``Treo 650 on Monday? The blogs are buzzing that the Treo 650 will be released'' (Sci/Tech, predicted Business) could each reasonably belong to either class.
+\item \emph{Model errors.} ``Calif.\ Lawmaker Wants to Privatize State Pensions'' (Business) is predicted as Sports with full confidence by the Transformer with last-token pooling.
+\end{itemize}
+
+One possible contributor to the Business and Sci/Tech confusion is unknown words, since both classes are full of company and product names that WikiText-2 does not contain. The data give this only weak support: Sci/Tech has the highest \tok{<unk>} rate (8.2\% of tokens, against 6.2\% for World), but Business (7.0\%) is no higher than Sports (7.0\%); in the best probe, Business items predicted as Sci/Tech contain slightly more \tok{<unk>} than correctly classified ones (7.8\% against 7.0\%), and Sci/Tech items predicted as Business hardly more (8.4\% against 8.3\%); in the two LSTM probes, Sci/Tech items predicted as Business contain \emph{fewer} \tok{<unk>} than correctly classified ones.
+
+\section{Tool use}\label{app:tools}
+An AI coding assistant, Claude Code (Anthropic) running Claude Opus 5.5, was used substantially. \emph{Code:} it wrote the configuration loading, data pipeline, RNN/LSTM model, training loop, benchmark, embedding code, AG News preparation, probe, analysis and figure scripts; the author wrote the Transformer (ported from an earlier implementation of their own) and, with review, parts of the Kneser-Ney trigram and the evaluation, generation and pooling code. The repository README lists the split file by file. \emph{Report:} it produced the tables and figures and the measured facts, and turned the author's notes into draft prose; the questions asked, the interpretations and the explanations are the author's, given in those notes and revised by the author. \todo{Check this matches how you want to describe the help, and keep it consistent with the README.}
 
 \end{document}
